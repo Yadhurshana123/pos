@@ -38,7 +38,7 @@ const sectionLabels = {
 export function Topbar({ venues = [] }) {
   const { t, darkMode, toggleDark } = useTheme()
   const { currentUser } = useAuth()
-  const { toggleSidebar, notifications, markAllRead } = useAppStore()
+  const { toggleSidebar, toggleSidebarCollapsed, notifications, markAllRead } = useAppStore()
   const { selectedVenueId, selectedSiteId, setVenue, setSite } = useVenueStore()
   const location = useLocation()
   const [bellOpen, setBellOpen] = useState(false)
@@ -56,6 +56,16 @@ export function Topbar({ venues = [] }) {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
+  const onHamburgerClick = () => {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      toggleSidebar()
+      return
+    }
+    if (['admin', 'manager', 'cashier'].includes(currentUser?.role)) {
+      toggleSidebarCollapsed()
+    }
+  }
+
   return (
     <div style={{
       height: 48, background: t.topbar, borderBottom: `1px solid ${t.border}`,
@@ -63,7 +73,7 @@ export function Topbar({ venues = [] }) {
       padding: '0 clamp(10px,2vw,24px)', position: 'sticky', top: 0, zIndex: 100,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button className="mob-menu-btn" onClick={toggleSidebar} style={{
+        <button onClick={onHamburgerClick} style={{
           background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 8,
           padding: '4px 10px', cursor: 'pointer', fontSize: 16, color: t.text,
         }}>☰</button>

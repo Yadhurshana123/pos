@@ -75,26 +75,29 @@ export function POSProductGrid({
         </div>
       </div>
 
-      <div className="pos-products-grid" style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 6, alignContent: 'start' }}>
+      <div className="pos-products-grid" style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, alignContent: 'start' }}>
         {filteredProds.map(p => {
           const disc = getItemDiscount(p)
           return (
-            <div key={p.id} onClick={() => addToCart(p)} style={{ background: t.card, border: `1px solid ${disc > 0 ? t.accent : t.border}`, borderRadius: 11, overflow: 'hidden', cursor: p.stock === 0 ? 'not-allowed' : 'pointer', opacity: p.stock === 0 ? 0.45 : 1, transition: 'all 0.12s', boxShadow: t.shadow, position: 'relative' }}
+            <div key={p.id} onClick={() => addToCart(p)} style={{ background: t.card, border: `1px solid ${disc > 0 ? t.accent : t.border}`, borderRadius: 16, cursor: p.stock === 0 ? 'not-allowed' : 'pointer', opacity: p.stock === 0 ? 0.45 : 1, transition: 'all 0.12s', boxShadow: t.shadow, position: 'relative', height: 262, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
               onMouseEnter={e => { if (p.stock > 0) e.currentTarget.style.boxShadow = t.shadowMd }}
               onMouseLeave={e => e.currentTarget.style.boxShadow = t.shadow}>
-              {disc > 0 && <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 1, background: t.accent, color: '#fff', borderRadius: 6, padding: '2px 6px', fontSize: 9, fontWeight: 900 }}>-{disc}% OFF</div>}
-              <div style={{ height: 'clamp(60px,12vw,80px)', background: t.bg3, overflow: 'hidden' }}>
-                <ImgWithFallback src={p.image || p.image_url || PRODUCT_IMAGES[p.name]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {disc > 0 && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 1, background: t.accent, color: '#fff', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 900 }}>-{disc}%</div>}
+              <div style={{ height: 158, width: '100%', background: t.bg3, overflow: 'hidden' }}>
+                <ImgWithFallback src={p.image || p.image_url || PRODUCT_IMAGES[p.name]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
-              <div style={{ padding: '7px 9px' }}>
-                <div style={{ fontSize: 'clamp(9px,2.5vw,11px)', fontWeight: 700, color: t.text, lineHeight: 1.3, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    {disc > 0 ? <><div style={{ fontSize: 10, color: t.text4, textDecoration: 'line-through' }}>{fmt(p.price, settings?.sym)}</div><div style={{ fontSize: 12, fontWeight: 900, color: t.accent }}>{fmt(p.price * (1 - disc / 100), settings?.sym)}</div></> : <div style={{ fontSize: 12, fontWeight: 900, color: t.green }}>{fmt(p.price, settings?.sym)}</div>}
-                  </div>
-                  <div style={{ fontSize: 9, color: p.stock <= 5 ? t.red : t.text4 }}>Stk:{p.stock}</div>
-                </div>
+              <div style={{ padding: '9px 10px 8px', marginBottom: 8, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: t.text, lineHeight: 1.35, marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                {disc > 0 ? <><div style={{ fontSize: 10, color: t.text4, textDecoration: 'line-through' }}>{fmt(p.price, settings?.sym)}</div><div style={{ fontSize: 13, fontWeight: 900, color: t.accent }}>{fmt(p.price * (1 - disc / 100), settings?.sym)}</div></> : <div style={{ fontSize: 13, fontWeight: 900, color: t.green }}>{fmt(p.price, settings?.sym)}</div>}
+                <div style={{ fontSize: 10, marginTop: 3, color: p.stock <= 5 ? t.red : t.text4 }}>Stk:{p.stock}</div>
               </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); addToCart(p) }}
+                disabled={p.stock === 0}
+                style={{ width: '100%', border: 'none', borderRadius: 999, padding: '8px 10px', background: p.stock === 0 ? t.bg4 : '#16c47f', color: p.stock === 0 ? t.text3 : '#fff', fontSize: 11, fontWeight: 800, cursor: p.stock === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                + ADD
+              </button>
             </div>
           )
         })}

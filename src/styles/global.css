@@ -13,6 +13,11 @@ body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
 
 .sidebar-wrap{width:220px;position:fixed;left:0;top:0;height:100vh;z-index:200;transition:transform .25s ease;background:#fff;}
 .main-content{margin-left:220px;transition:margin-left .25s ease;}
+.sidebar-wrap.collapsed{width:60px;}
+.main-content.collapsed{margin-left:60px;}
+.sidebar-wrap.collapsed .sidebar-label{display:none!important;}
+.sidebar-wrap.collapsed nav > div{display:none;}
+.sidebar-wrap.collapsed button{justify-content:center;}
 
 @media(min-width:769px) and (max-width:1024px){
   .sidebar-wrap{width:60px!important;overflow:hidden;}
@@ -30,7 +35,7 @@ body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
   .pos-right{flex:1!important;width:100%!important;height:100%!important;border-left:none!important;border-top:1px solid #e2e8f0;display:none!important;}
   .pos-right.show-mobile{display:flex!important;position:fixed;inset:0;z-index:100;background:#fff;padding-top:50px;padding-bottom:10px;overflow-y:auto;}
   .pos-back-btn{display:flex!important;position:fixed;top:10px;left:10px;z-index:101;background:#f1f5f9;padding:8px 16px;border-radius:10px;font-weight:700;font-size:13px;align-items:center;gap:6px;border:1px solid #e2e8f0;}
-  .pos-products-grid{padding:10px 10px 80px!important;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr))!important;}
+  .pos-products-grid{padding:10px 10px 80px!important;grid-template-columns:repeat(3, minmax(0, 1fr))!important;gap:10px!important;}
   .pos-grid-header button{flex:1!important;min-width:70px!important;padding:8px 6px!important;font-size:11px!important;}
   .pos-grid-header input{flex:1 1 100%!important;}
   .grid-2{grid-template-columns:1fr!important;}
@@ -58,9 +63,9 @@ body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
 @media(max-width:768px){.mob-menu-btn{display:flex!important;}}
 
 @media(min-width:769px){
-  .pos-layout{display:flex;height:calc(100vh - 48px);overflow:hidden;}
+  .pos-layout{display:flex;height:calc(100vh - 48px);overflow:hidden;width:100%;}
   .pos-left{overflow:hidden;display:flex;flex-direction:column;}
-  .pos-right{overflow:hidden;display:flex;flex-direction:column;}
+  .pos-right{overflow:hidden;display:flex;flex-direction:column;min-width:420px;max-width:460px;}
 }
 
 .main-content{overflow-x:hidden;}

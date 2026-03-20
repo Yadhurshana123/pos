@@ -741,9 +741,9 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   }
 
   return (
-    <div className="pos-layout" style={{ background: t.bg }}>
+    <div className="pos-layout" style={{ background: t.bg, padding: 0, gap: 0 }}>
       {/* Left side: Product Grid */}
-      <div className="pos-left" style={{ flex: 1, position: 'relative' }}>
+      <div className="pos-left" style={{ flex: 1, position: 'relative', borderRadius: 16, overflow: 'hidden', border: `1px solid ${t.border}`, boxShadow: t.shadowMd, background: t.posLeft }}>
         <POSProductGrid search={search} setSearch={setSearch} categories={categories} cat={cat} setCat={setCat} filteredProds={filteredProds} favProds={favProds} getItemDiscount={getItemDiscount} addToCart={(loadedOrderForReturn && returnProcessMode !== 'exchange') ? () => { } : handleProductClick} scanMsg={scanMsg} parkBill={parkBill} parked={parked} recallBill={recallBill} showParkedDropdown={showParkedDropdown} setShowParkedDropdown={setShowParkedDropdown} setShowBarcodeInput={setShowBarcodeInput} setShowReprint={setShowReprint} setShowReturnModal={setShowReturnModal} loadOrderInput={loadOrderInput} setLoadOrderInput={setLoadOrderInput} loadOrderForReturn={loadOrderForReturn} loadOrderLoading={loadOrderLoading} loadedOrderForReturn={loadedOrderForReturn} returnProcessMode={returnProcessMode} settings={settings} t={t} />
         
         {/* Mobile View Cart FAB */}
@@ -766,7 +766,7 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
       {/* Right side: Cart Panel */}
       <div 
         className={`pos-right${showCartMobile ? ' show-mobile' : ''}`}
-        style={{ flexShrink: 0, zIndex: 10 }}
+        style={{ flexShrink: 0, zIndex: 10, borderRadius: 16, overflow: 'hidden', border: `1px solid ${t.border}`, boxShadow: t.shadowMd, background: t.posRight }}
       >
         {showCartMobile && (
           <button className="pos-back-btn" onClick={() => setShowCartMobile(false)}>

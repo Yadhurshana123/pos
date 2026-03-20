@@ -272,7 +272,7 @@ export function Sidebar() {
                 fontFamily: 'inherit',
               }}
             >
-              <span style={{ fontSize: 14, minWidth: 20, textAlign: 'center' }}>{item.i}</span>
+              <span style={{ fontSize: 22, minWidth: 28, textAlign: 'center' }}>{item.i}</span>
               <span className="sidebar-label">{item.l}</span>
             </button>
           )
@@ -298,7 +298,7 @@ export function Sidebar() {
             marginBottom: 4,
           }}
         >
-          <span style={{ fontSize: 14, minWidth: 20, textAlign: 'center' }}>👤</span>
+          <span style={{ fontSize: 22, minWidth: 28, textAlign: 'center' }}>👤</span>
           <span className="sidebar-label">My Profile</span>
         </button>
         <button
@@ -319,7 +319,7 @@ export function Sidebar() {
             fontFamily: 'inherit',
           }}
         >
-          <span style={{ fontSize: 14, minWidth: 20, textAlign: 'center' }}>🚪</span>
+          <span style={{ fontSize: 22, minWidth: 28, textAlign: 'center' }}>🚪</span>
           <span className="sidebar-label">Sign Out</span>
         </button>
       </div>

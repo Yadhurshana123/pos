@@ -158,8 +158,21 @@ export async function updateProduct(id, updates) {
 export async function deleteProduct(id) {
   if (isSupabaseConfigured()) {
     const { error } = await supabase.from('products').delete().eq('id', id)
-    if (error) throw error
+    if (!error) return { deleted: true, archived: false }
+
+    // If product is referenced by movement/order history tables, soft-delete instead.
+    if (error.code === '23503') {
+      const { error: archiveError } = await supabase
+        .from('products')
+        .update({ status: 'inactive' })
+        .eq('id', id)
+      if (archiveError) throw archiveError
+      return { deleted: false, archived: true }
+    }
+
+    throw error
   }
+  return { deleted: true, archived: false }
 }
 
 /** Look up product by barcode from product_barcodes table */

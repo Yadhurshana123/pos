@@ -179,12 +179,19 @@ export const ProductManagement = ({ products, setProducts, addAudit, currentUser
     if (!confirm(`Delete "${p.name}"?`)) return
     setSaving(true)
     try {
+      let result = { deleted: true, archived: false }
       if (isSupabaseConfigured()) {
-        await deleteProduct(p.id)
+        result = await deleteProduct(p.id)
       }
-      setProducts(ps => ps.filter(x => x.id !== p.id))
-      addAudit(currentUser, 'Product Deleted', 'Inventory', p.name)
-      notify('Product deleted', 'warning')
+      if (result?.archived) {
+        setProducts(ps => ps.filter(x => x.id !== p.id))
+        addAudit(currentUser, 'Product Archived', 'Inventory', p.name)
+        notify('Product has history, so it was archived (inactive).', 'warning')
+      } else {
+        setProducts(ps => ps.filter(x => x.id !== p.id))
+        addAudit(currentUser, 'Product Deleted', 'Inventory', p.name)
+        notify('Product deleted', 'warning')
+      }
     } catch (err) {
       notify(err?.message || 'Failed to delete product', 'error')
     } finally {
