@@ -1,0 +1,6 @@
+export { LoginPage } from './auth/LoginPage'
+export { RegisterPage } from './auth/RegisterPage'
+export { GuestHomePage } from './guest/GuestHomePage'
+export { GuestShopPage } from './guest/GuestShopPage'
+export { GuestFooter } from './guest/GuestFooter'
+export { ProfilePage } from './shared/ProfilePage'
