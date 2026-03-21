@@ -18,6 +18,7 @@ const sectionLabels = {
   settings: 'Settings',
   venues: 'Venues & Sites',
   pos: 'POS Terminal',
+  payment: 'Payment',
   products: 'Products',
   inventory: 'Inventory',
   cashiers: 'Cashiers',
@@ -38,7 +39,7 @@ const sectionLabels = {
 export function Topbar({ venues = [] }) {
   const { t, darkMode, toggleDark } = useTheme()
   const { currentUser } = useAuth()
-  const { toggleSidebar, toggleSidebarCollapsed, notifications, markAllRead } = useAppStore()
+  const { toggleSidebar, toggleSidebarCollapsed, toggleSidebarHidden, notifications, markAllRead } = useAppStore()
   const { selectedVenueId, selectedSiteId, setVenue, setSite } = useVenueStore()
   const location = useLocation()
   const [bellOpen, setBellOpen] = useState(false)
@@ -46,8 +47,11 @@ export function Topbar({ venues = [] }) {
   const isAdmin = currentUser?.role === 'admin'
   const selectedVenue = venues.find(v => v.id === selectedVenueId)
 
-  const segment = location.pathname.split('/app/')[1] || 'dashboard'
-  const label = sectionLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)
+  const pathAfterApp = location.pathname.split('/app/')[1] || 'dashboard'
+  const segment = pathAfterApp.split('/')[0] || 'dashboard'
+  const label = pathAfterApp.startsWith('pos')
+    ? sectionLabels.pos
+    : (sectionLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1))
   const unread = notifications.filter(n => !n.read).length
 
   useEffect(() => {
@@ -61,7 +65,11 @@ export function Topbar({ venues = [] }) {
       toggleSidebar()
       return
     }
-    if (['admin', 'manager', 'cashier'].includes(currentUser?.role)) {
+    if (currentUser?.role === 'cashier') {
+      toggleSidebarHidden()
+      return
+    }
+    if (['admin', 'manager'].includes(currentUser?.role)) {
       toggleSidebarCollapsed()
     }
   }

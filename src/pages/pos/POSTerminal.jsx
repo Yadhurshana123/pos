@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useTheme } from '@/context/ThemeContext'
 import { useAuth } from '@/context/AuthContext'
 import { useCashStore } from '@/stores/cashStore'
@@ -9,14 +9,50 @@ import { fmt, ts, genId, isBannerActive, getTier } from '@/lib/utils'
 import dayjs from 'dayjs'
 import { POSProductGrid } from './POSProductGrid'
 import { POSCartPanel } from './POSCartPanel'
+import { POSCheckoutColumn } from './POSCheckoutColumn'
 import { CashierReturns } from '@/pages/cashier/CashierReturns'
-import { inventoryService, productsService, ordersService, parkedBillsService, paymentsService, sitePricesService, promotionsService, returnsService, categoriesService } from '@/services'
+import { inventoryService, productsService, ordersService, parkedBillsService, paymentsService, sitePricesService, promotionsService, returnsService } from '@/services'
 import { isSupabaseConfigured } from '@/lib/supabase'
+
+/** Merge DB dynamic_attributes with seed `sizes` / `colors` so jerseys get Size/Color pickers. */
+function getEffectiveDynamicAttributes(p) {
+  const d = { ...(p.dynamic_attributes || {}) }
+  const hasAny = Object.keys(d).some(k => d[k] && d[k].length > 0)
+  if (!hasAny) {
+    if (p.sizes?.length) d.Size = p.sizes
+    if (p.colors?.length) d.Color = p.colors
+  }
+  return d
+}
+
+function parseVariantStrToAttrs(variantStr) {
+  if (!variantStr?.trim()) return {}
+  const out = {}
+  variantStr.split(', ').forEach(seg => {
+    const i = seg.indexOf(':')
+    if (i > 0) out[seg.slice(0, i).trim()] = seg.slice(i + 1).trim()
+  })
+  return out
+}
+
+/** Stored on each cart line for POS display (Name, Brand, Size, Color, …). */
+function buildLineAttributes(p, selectedAttrs, variantStr) {
+  const fromVariant = selectedAttrs && typeof selectedAttrs === 'object'
+    ? selectedAttrs
+    : parseVariantStrToAttrs(variantStr)
+  const out = { Name: p.name }
+  if (p.brand || p.brand_name) out.Brand = String(p.brand || p.brand_name)
+  Object.entries(fromVariant).forEach(([k, v]) => {
+    if (v != null && v !== '' && String(k).trim() !== 'Name') out[k] = String(v)
+  })
+  return out
+}
 
 export const POSTerminal = ({ products, setProducts, orders, setOrders, returns = [], setReturns, users, setUsers, coupons, settings, counters, addAudit, currentUser, siteId }) => {
   const { t } = useTheme()
   const { currentUser: authUser } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const user = currentUser || authUser
 
   const { session, isLoading, loadSession } = useCashStore()
@@ -49,9 +85,6 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   }, [effectiveSiteId])
 
   const [cart, setCart] = useState([])
-  const [categories, setCategories] = useState(['All'])
-  const [cat, setCat] = useState('All')
-  const [search, setSearch] = useState('')
   const [payMethod, setPayMethod] = useState('Card')
   const [splitCash, setSplitCash] = useState('')
   const [splitCard, setSplitCard] = useState('')
@@ -73,9 +106,7 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [loyaltyRedeem, setLoyaltyRedeem] = useState(false)
   const [parked, setParked] = useState([])
-  const [favourites] = useState([1, 6, 9, 4])
   const [showCustDisplay, setShowCustDisplay] = useState(false)
-  const [showCartMobile, setShowCartMobile] = useState(false)
   const [scanMsg, setScanMsg] = useState('')
   const [manualBarcode, setManualBarcode] = useState('')
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
@@ -98,21 +129,46 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   const [returnReasonCode, setReturnReasonCode] = useState('damaged')
   const [returnProcessMode, setReturnProcessMode] = useState('return')
   const [returnRefundMethod, setReturnRefundMethod] = useState('original')
-
   const [variantProduct, setVariantProduct] = useState(null)
   const [selectedVariant, setSelectedVariant] = useState({})
+  const [variantPrintName, setVariantPrintName] = useState('')
+  const [search, setSearch] = useState('')
+  const [orderDisplayId] = useState(() => genId('ORD'))
+
+  const quickAccessProducts = useMemo(() => {
+    const withStock = products.filter((p) => (p.stock ?? 0) > 0)
+    const pick = (sub) => products.find((p) => p.name?.toLowerCase().includes(sub))
+    const a = pick('movie') || pick('ticket')
+    const b = pick('popcorn')
+    const out = []
+    if (a) out.push(a)
+    if (b && !out.some((x) => x.id === b.id)) out.push(b)
+    for (const p of withStock) {
+      if (out.length >= 2) break
+      if (!out.some((x) => x.id === p.id)) out.push(p)
+    }
+    return out.slice(0, 2)
+  }, [products])
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    categoriesService.fetchCategories()
-      .then(data => {
-        if (data) {
-          const names = ['All', ...data.map(c => c.name)]
-          setCategories(names)
-        }
-      })
-      .catch(() => { })
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return
+      if (e.key === 'F4') {
+        e.preventDefault()
+        document.querySelector('.pos-search-strip .pos-grid-header input')?.focus?.()
+      }
+      if (e.key === 'F2') {
+        e.preventDefault()
+        setShowBarcodeInput(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  useEffect(() => {
+    if (location.pathname === '/app/pos/payment') navigate('/app/pos', { replace: true })
+  }, [location.pathname, navigate])
 
   const barcodeBuffer = useRef('')
   const lastKeyTime = useRef(0)
@@ -166,10 +222,10 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
 
   const banners = []
   const activeOffers = (settings.banners || banners || []).filter(b => isBannerActive?.(b)).filter(b => b.offerType !== 'none') || []
+  const q = search.trim().toLowerCase()
+  const filteredProds = !q ? [] : products.filter(p =>
+    p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q))
   // no global vatRate — tax is per-product
-  const filteredProds = products.filter(p => (cat === 'All' || p.category === cat) && (p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase())))
-  const favProds = products.filter(p => favourites.includes(p.id))
-
   const getEffectiveBasePrice = useCallback((product) => {
     const sitePrice = sitePricesMap[product.id]
     if (sitePrice != null) return Number(sitePrice)
@@ -202,7 +258,7 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   }, [activeOffers])
 
   const handleProductClick = (p) => {
-    const attrs = p.dynamic_attributes || {}
+    const attrs = getEffectiveDynamicAttributes(p)
     const keys = Object.keys(attrs).filter(k => attrs[k] && attrs[k].length > 0)
 
     if (keys.length > 0) {
@@ -210,14 +266,16 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
       const initial = {}
       keys.forEach(k => { initial[k] = attrs[k][0] })
       setSelectedVariant(initial)
+      setVariantPrintName('')
     } else {
       addToCart(p)
     }
   }
 
-  const addToCart = (p, variantStr = '', overridePrice = null) => {
+  const addToCart = (p, variantStr = '', overridePrice = null, selectedAttrs = null) => {
     const cartId = variantStr ? `${p.id}-${variantStr}` : p.id
     const displayName = variantStr ? `${p.name} (${variantStr})` : p.name
+    const lineAttributes = buildLineAttributes(p, selectedAttrs, variantStr)
 
     const currentQtyForProduct = cart.filter(i => (i.originalId || i.id) === p.id).reduce((s, i) => s + i.qty, 0)
 
@@ -227,7 +285,18 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
     setCart(c => {
       const ex = c.find(i => i.id === cartId)
       if (ex) return c.map(i => i.id === cartId ? { ...i, qty: i.qty + 1 } : i)
-      return [...c, { ...p, id: cartId, originalId: p.id, name: displayName, qty: 1, discount: disc, price: effectivePrice, taxPct: p.taxPct ?? 20, overridePrice: overridePrice != null ? Number(overridePrice) : null }]
+      return [...c, {
+        ...p,
+        id: cartId,
+        originalId: p.id,
+        name: displayName,
+        qty: 1,
+        discount: disc,
+        price: effectivePrice,
+        taxPct: p.taxPct ?? 20,
+        overridePrice: overridePrice != null ? Number(overridePrice) : null,
+        lineAttributes,
+      }]
     })
     if (disc > 0) notify(`🎉 ${disc}% offer applied on ${p.name}!`, 'success')
   }
@@ -240,11 +309,14 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
 
   const confirmVariant = () => {
     if (!variantProduct) return
-    const parts = Object.entries(selectedVariant)
+    const merged = { ...selectedVariant }
+    if (variantPrintName.trim()) merged['Print name'] = variantPrintName.trim()
+    const parts = Object.entries(merged)
       .filter(([_, val]) => !!val)
       .map(([key, val]) => `${key}: ${val}`)
-    addToCart(variantProduct, parts.join(', '))
+    addToCart(variantProduct, parts.join(', '), null, merged)
     setVariantProduct(null)
+    setVariantPrintName('')
   }
 
   const updateQty = (id, d) => {
@@ -741,51 +813,94 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   }
 
   return (
-    <div className="pos-layout" style={{ background: t.bg, padding: 0, gap: 0 }}>
-      {/* Left side: Product Grid */}
-      <div className="pos-left" style={{ flex: 1, position: 'relative', borderRadius: 16, overflow: 'hidden', border: `1px solid ${t.border}`, boxShadow: t.shadowMd, background: t.posLeft }}>
-        <POSProductGrid search={search} setSearch={setSearch} categories={categories} cat={cat} setCat={setCat} filteredProds={filteredProds} favProds={favProds} getItemDiscount={getItemDiscount} addToCart={(loadedOrderForReturn && returnProcessMode !== 'exchange') ? () => { } : handleProductClick} scanMsg={scanMsg} parkBill={parkBill} parked={parked} recallBill={recallBill} showParkedDropdown={showParkedDropdown} setShowParkedDropdown={setShowParkedDropdown} setShowBarcodeInput={setShowBarcodeInput} setShowReprint={setShowReprint} setShowReturnModal={setShowReturnModal} loadOrderInput={loadOrderInput} setLoadOrderInput={setLoadOrderInput} loadOrderForReturn={loadOrderForReturn} loadOrderLoading={loadOrderLoading} loadedOrderForReturn={loadedOrderForReturn} returnProcessMode={returnProcessMode} settings={settings} t={t} />
-        
-        {/* Mobile View Cart FAB */}
-        {!showCartMobile && (
-          <button 
-            className="mob-show"
-            onClick={() => setShowCartMobile(true)}
-            style={{
-              position: 'absolute', bottom: 20, right: 20, zIndex: 50,
-              background: t.accent, color: '#fff', padding: '12px 24px',
-              borderRadius: 30, fontWeight: 800, fontSize: 15, border: 'none',
-              boxShadow: `0 4px 15px ${t.accent}60`, alignItems: 'center', gap: 8
-            }}
-          >
-            🛒 View Cart ({cart.length})
-          </button>
-        )}
-      </div>
-
-      {/* Right side: Cart Panel */}
-      <div 
-        className={`pos-right${showCartMobile ? ' show-mobile' : ''}`}
-        style={{ flexShrink: 0, zIndex: 10, borderRadius: 16, overflow: 'hidden', border: `1px solid ${t.border}`, boxShadow: t.shadowMd, background: t.posRight }}
-      >
-        {showCartMobile && (
-          <button className="pos-back-btn" onClick={() => setShowCartMobile(false)}>
-            ← Back to Products
-          </button>
-        )}
-        <POSCartPanel cart={cart} updateQty={updateQty} setCart={setCart} removeFromCart={removeFromCart} removeMode={removeMode} setRemoveMode={setRemoveMode} cartSearch={cartSearch} setCartSearch={setCartSearch} selCust={selCust} setSelCust={setSelCust} custSearch={custSearch} setCustSearch={setCustSearch} lookupCustomer={lookupCustomer} setShowNewCust={setShowNewCust} loyaltyRedeem={loyaltyRedeem} setLoyaltyRedeem={setLoyaltyRedeem} appliedCoupon={appliedCoupon} setAppliedCoupon={setAppliedCoupon} couponCode={couponCode} setCouponCode={setCouponCode} applyCoupon={applyCoupon} cartSubtotal={cartSubtotal} cartTax={cartTax} couponDiscount={couponDiscount} loyaltyDiscount={loyaltyDiscount} manualDiscountPct={manualDiscountPct} setManualDiscountPct={setManualDiscountPct} manualDiscountAmount={manualDiscountAmount} cartTotal={cartTotal} pointsEarned={pointsEarned} payMethod={payMethod} setPayMethod={setPayMethod} cashGiven={cashGiven} setCashGiven={setCashGiven} cashGivenNum={cashGivenNum} cashChange={cashChange} cardNum={cardNum} setCardNum={setCardNum} setCardExp={setCardExp} setCardCvv={setCardCvv} splitCash={splitCash} setSplitCash={setSplitCash} splitCard={splitCard} setSplitCard={setSplitCard} checkout={checkout} setShowCustDisplay={setShowCustDisplay} updateCartItemPrice={updateCartItemPrice} user={user} checkoutProcessing={checkoutProcessing} qrPaymentStatus={qrPaymentStatus} settings={settings} t={t} loadedOrderForReturn={loadedOrderForReturn} processReturnFromCart={processReturnFromCart} clearReturnMode={clearReturnMode} returnReasonCode={returnReasonCode} setReturnReasonCode={setReturnReasonCode} returnProcessMode={returnProcessMode} setReturnProcessMode={setReturnProcessMode} returnRefundMethod={returnRefundMethod} setReturnRefundMethod={setReturnRefundMethod} />
+    <>
+    <div className="pos-layout pos-register-fullpage pos-precision-wrap" style={{ flexDirection: 'column', flex: 1, minHeight: 0, height: '100%', width: '100%', background: t.bg, padding: 0, gap: 0 }}>
+      <div className="pos-precision-body" style={{ flex: 1, minHeight: 0, width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', minWidth: 0 }}>
+          <POSProductGrid
+            orderDisplayId={orderDisplayId}
+            search={search} setSearch={setSearch}
+            filteredProds={filteredProds} getItemDiscount={getItemDiscount}
+            addToCart={(loadedOrderForReturn && returnProcessMode !== 'exchange') ? () => { } : handleProductClick}
+            scanMsg={scanMsg} parkBill={parkBill} parked={parked} recallBill={recallBill} showParkedDropdown={showParkedDropdown} setShowParkedDropdown={setShowParkedDropdown}
+            setShowBarcodeInput={setShowBarcodeInput} setShowReprint={setShowReprint} setShowReturnModal={setShowReturnModal}
+            loadOrderInput={loadOrderInput} setLoadOrderInput={setLoadOrderInput} loadOrderForReturn={loadOrderForReturn} loadOrderLoading={loadOrderLoading} loadedOrderForReturn={loadedOrderForReturn}
+            returnProcessMode={returnProcessMode} settings={settings} t={t}
+          />
+          <div className="pos-cart-full" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 12px 12px' }}>
+            <POSCartPanel
+              className="pos-cart-fullpage"
+              checkoutSplit
+              cart={cart} updateQty={updateQty} setCart={setCart} removeFromCart={removeFromCart} removeMode={removeMode} setRemoveMode={setRemoveMode} cartSearch={cartSearch} setCartSearch={setCartSearch} selCust={selCust} setSelCust={setSelCust} custSearch={custSearch} setCustSearch={setCustSearch} lookupCustomer={lookupCustomer} setShowNewCust={setShowNewCust} loyaltyRedeem={loyaltyRedeem} setLoyaltyRedeem={setLoyaltyRedeem} appliedCoupon={appliedCoupon} setAppliedCoupon={setAppliedCoupon} couponCode={couponCode} setCouponCode={setCouponCode} applyCoupon={applyCoupon} cartSubtotal={cartSubtotal} cartTax={cartTax} couponDiscount={couponDiscount} loyaltyDiscount={loyaltyDiscount} manualDiscountPct={manualDiscountPct} setManualDiscountPct={setManualDiscountPct} manualDiscountAmount={manualDiscountAmount} cartTotal={cartTotal} pointsEarned={pointsEarned} updateCartItemPrice={updateCartItemPrice} user={user} checkoutProcessing={checkoutProcessing} payMethod={payMethod} setPayMethod={setPayMethod} cashGiven={cashGiven} setCashGiven={setCashGiven} cashGivenNum={cashGivenNum} cashChange={cashChange} splitCash={splitCash} setSplitCash={setSplitCash} splitCard={splitCard} setSplitCard={setSplitCard} cardNum={cardNum} setCardNum={setCardNum} setCardExp={setCardExp} setCardCvv={setCardCvv} checkout={checkout} setShowCustDisplay={setShowCustDisplay} qrPaymentStatus={qrPaymentStatus} settings={settings} t={t} loadedOrderForReturn={loadedOrderForReturn} processReturnFromCart={processReturnFromCart} clearReturnMode={clearReturnMode} returnReasonCode={returnReasonCode} setReturnReasonCode={setReturnReasonCode} returnProcessMode={returnProcessMode} setReturnProcessMode={setReturnProcessMode} returnRefundMethod={returnRefundMethod} setReturnRefundMethod={setReturnRefundMethod}
+            />
+          </div>
+        </div>
+        <POSCheckoutColumn
+          quickAccessProducts={quickAccessProducts}
+          onQuickAdd={(loadedOrderForReturn && returnProcessMode !== 'exchange') ? () => { } : handleProductClick}
+          cart={cart}
+          setCart={setCart}
+          appliedCoupon={appliedCoupon}
+          setAppliedCoupon={setAppliedCoupon}
+          couponCode={couponCode}
+          setCouponCode={setCouponCode}
+          applyCoupon={applyCoupon}
+          cartSubtotal={cartSubtotal}
+          cartTax={cartTax}
+          couponDiscount={couponDiscount}
+          loyaltyDiscount={loyaltyDiscount}
+          manualDiscountPct={manualDiscountPct}
+          setManualDiscountPct={setManualDiscountPct}
+          manualDiscountAmount={manualDiscountAmount}
+          cartTotal={cartTotal}
+          pointsEarned={pointsEarned}
+          selCust={selCust}
+          loyaltyRedeem={loyaltyRedeem}
+          setLoyaltyRedeem={setLoyaltyRedeem}
+          user={user}
+          checkoutProcessing={checkoutProcessing}
+          payMethod={payMethod}
+          setPayMethod={setPayMethod}
+          cashGiven={cashGiven}
+          setCashGiven={setCashGiven}
+          cashGivenNum={cashGivenNum}
+          cashChange={cashChange}
+          splitCash={splitCash}
+          setSplitCash={setSplitCash}
+          splitCard={splitCard}
+          setSplitCard={setSplitCard}
+          cardNum={cardNum}
+          setCardNum={setCardNum}
+          setCardExp={setCardExp}
+          setCardCvv={setCardCvv}
+          checkout={checkout}
+          setShowCustDisplay={setShowCustDisplay}
+          qrPaymentStatus={qrPaymentStatus}
+          settings={settings}
+          t={t}
+          loadedOrderForReturn={loadedOrderForReturn}
+          processReturnFromCart={processReturnFromCart}
+          clearReturnMode={clearReturnMode}
+          returnReasonCode={returnReasonCode}
+          setReturnReasonCode={setReturnReasonCode}
+          returnProcessMode={returnProcessMode}
+          setReturnProcessMode={setReturnProcessMode}
+          returnRefundMethod={returnRefundMethod}
+          setReturnRefundMethod={setReturnRefundMethod}
+        />
       </div>
 
       {variantProduct && (
-        <Modal t={t} title="Select Variant" subtitle={variantProduct.name} onClose={() => setVariantProduct(null)}>
+        <Modal t={t} title="Select options" subtitle={variantProduct.name} onClose={() => { setVariantProduct(null); setVariantPrintName('') }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {Object.entries(variantProduct.dynamic_attributes || {}).map(([key, values]) => (
+            {Object.entries(getEffectiveDynamicAttributes(variantProduct)).map(([key, values]) => (
               values && values.length > 0 && (
                 <div key={key}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: t.text3, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>{key}</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {values.map(val => (
                       <button
+                        type="button"
                         key={val}
                         onClick={() => setSelectedVariant(v => ({ ...v, [key]: val }))}
                         style={{
@@ -807,8 +922,9 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
                 </div>
               )
             ))}
+            <Input t={t} label="Print name (optional)" value={variantPrintName} onChange={setVariantPrintName} placeholder="e.g. name on jersey" note="Shown on receipt and cart" />
             <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-              <Btn t={t} variant="ghost" onClick={() => setVariantProduct(null)} style={{ flex: 1 }}>Cancel</Btn>
+              <Btn t={t} variant="ghost" onClick={() => { setVariantProduct(null); setVariantPrintName('') }} style={{ flex: 1 }}>Cancel</Btn>
               <Btn t={t} variant="primary" onClick={confirmVariant} style={{ flex: 1 }}>Add to Cart</Btn>
             </div>
           </div>
@@ -993,5 +1109,6 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
         </div>
       )}
     </div>
+    </>
   )
 }

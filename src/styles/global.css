@@ -19,10 +19,16 @@ body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
 .sidebar-wrap.collapsed nav > div{display:none;}
 .sidebar-wrap.collapsed button{justify-content:center;}
 
+/* Cashier: hamburger fully hides sidebar (desktop) */
+.sidebar-wrap.sidebar-hidden{width:0!important;min-width:0!important;overflow:hidden!important;opacity:0;pointer-events:none;border-right:none!important;}
+.main-content.sidebar-hidden{margin-left:0!important;}
+
 @media(min-width:769px) and (max-width:1024px){
   .sidebar-wrap{width:60px!important;overflow:hidden;}
   .sidebar-label{display:none!important;}
   .main-content{margin-left:60px!important;}
+  .sidebar-wrap.sidebar-hidden{width:0!important;min-width:0!important;}
+  .main-content.sidebar-hidden{margin-left:0!important;}
 }
 
 @media(max-width:768px){
@@ -34,8 +40,12 @@ body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
   .pos-left{flex:1!important;height:100%!important;overflow-y:auto!important;}
   .pos-right{flex:1!important;width:100%!important;height:100%!important;border-left:none!important;border-top:1px solid #e2e8f0;display:none!important;}
   .pos-right.show-mobile{display:flex!important;position:fixed;inset:0;z-index:100;background:#fff;padding-top:50px;padding-bottom:10px;overflow-y:auto;}
+  .pos-register-only .pos-right{display:flex!important;border-top:none!important;height:auto!important;max-height:none!important;flex:1 1 auto!important;}
+  .pos-layout.pos-register-fullpage .pos-right.pos-cart-fullpage{display:flex!important;border-top:none!important;flex:1!important;min-height:0!important;width:100%!important;max-width:none!important;}
+  .pos-payment-layout{flex-direction:column!important;}
+  .pos-payment-layout .pos-right{display:flex!important;border-top:1px solid #e2e8f0!important;min-height:min(42vh,360px)!important;max-height:48vh!important;overflow-y:auto!important;flex:1 1 auto!important;}
   .pos-back-btn{display:flex!important;position:fixed;top:10px;left:10px;z-index:101;background:#f1f5f9;padding:8px 16px;border-radius:10px;font-weight:700;font-size:13px;align-items:center;gap:6px;border:1px solid #e2e8f0;}
-  .pos-products-grid{padding:10px 10px 80px!important;grid-template-columns:repeat(3, minmax(0, 1fr))!important;gap:10px!important;}
+  .pos-products-grid{padding:12px 12px 80px!important;grid-template-columns:repeat(4, minmax(0, 1fr))!important;gap:10px!important;}
   .pos-grid-header button{flex:1!important;min-width:70px!important;padding:8px 6px!important;font-size:11px!important;}
   .pos-grid-header input{flex:1 1 100%!important;}
   .grid-2{grid-template-columns:1fr!important;}
@@ -64,8 +74,22 @@ body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
 
 @media(min-width:769px){
   .pos-layout{display:flex;height:calc(100vh - 48px);overflow:hidden;width:100%;}
+  .pos-layout.pos-register-only{flex-direction:column;}
+  .pos-layout.pos-register-fullpage{flex-direction:column!important;}
+  .pos-register-wrap{flex:1;min-height:0;overflow:auto;}
   .pos-left{overflow:hidden;display:flex;flex-direction:column;}
   .pos-right{overflow:hidden;display:flex;flex-direction:column;min-width:420px;max-width:460px;}
+  .pos-register-only .pos-right{min-width:unset;max-width:480px;}
+  .pos-layout.pos-register-fullpage .pos-cart-fullpage{min-width:unset!important;max-width:none!important;width:100%!important;flex:1!important;min-height:0!important;}
+  .pos-payment-layout .pos-right{min-width:380px;max-width:460px;}
+  .pos-precision-body{display:grid;grid-template-columns:minmax(0,1fr) min(340px,42vw);flex:1;min-height:0;width:100%;align-items:stretch;}
+  .pos-precision-wrap .pos-precision-body{min-height:0;}
 }
+
+@media(max-width:1024px){
+  .pos-precision-body{grid-template-columns:1fr!important;}
+  .pos-precision-checkout{border-left:none!important;border-top:1px solid #e2e8f0!important;max-height:min(52vh,480px);}
+}
+
 
 .main-content{overflow-x:hidden;}

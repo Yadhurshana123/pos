@@ -299,7 +299,7 @@ function AppContent() {
             } />
 
             {/* POS */}
-            <Route path="pos" element={
+            <Route path="pos/*" element={
               <ProtectedRoute allowedRoles={['cashier', 'admin', 'manager']}>
                 <POSTerminal {...commonProps} />
               </ProtectedRoute>

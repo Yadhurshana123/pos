@@ -8,10 +8,10 @@ import { venuesService } from '@/services'
 
 export function MainLayout() {
   const { t } = useTheme()
-  const { sidebarOpen, sidebarCollapsed, closeSidebar } = useAppStore()
+  const { sidebarOpen, sidebarCollapsed, sidebarHidden, closeSidebar } = useAppStore()
   const [venues, setVenues] = useState([])
   const location = useLocation()
-  const isPosRoute = location.pathname === '/app/pos'
+  const isPosRoute = location.pathname === '/app/pos' || location.pathname.startsWith('/app/pos/')
 
   useEffect(() => {
     venuesService.fetchVenuesWithSites().then(setVenues)
@@ -26,7 +26,7 @@ export function MainLayout() {
         color: t.text,
       }}
     >
-      <div className={`sidebar-wrap${sidebarOpen ? ' open' : ''}${sidebarCollapsed ? ' collapsed' : ''}`}>
+      <div className={`sidebar-wrap${sidebarOpen ? ' open' : ''}${sidebarCollapsed ? ' collapsed' : ''}${sidebarHidden ? ' sidebar-hidden' : ''}`}>
         <Sidebar />
       </div>
       {sidebarOpen && (
@@ -41,7 +41,7 @@ export function MainLayout() {
         />
       )}
       <div
-        className={`main-content${sidebarCollapsed ? ' collapsed' : ''}`}
+        className={`main-content${sidebarCollapsed ? ' collapsed' : ''}${sidebarHidden ? ' sidebar-hidden' : ''}`}
         style={{
           minHeight: '100vh',
           display: 'flex',
@@ -54,6 +54,8 @@ export function MainLayout() {
             padding: isPosRoute ? 0 : 'clamp(10px,2vw,24px)',
             flex: 1,
             minWidth: 0,
+            minHeight: 0,
+            ...(isPosRoute ? { display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}),
           }}
         >
           <Outlet />
