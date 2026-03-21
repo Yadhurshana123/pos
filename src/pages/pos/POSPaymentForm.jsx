@@ -12,6 +12,8 @@ export function POSPaymentForm({
   settings, t,
   /** 'complete' = large maroon-style CTA label; default keeps amount in label */
   primaryCta = 'amount',
+  /** When false, only method controls + fields (Pay button rendered elsewhere). */
+  showPayButton = true,
 }) {
   const completeLabel = primaryCta === 'complete'
   return (
@@ -82,18 +84,20 @@ export function POSPaymentForm({
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" onClick={checkout} disabled={cartTotal <= 0 || checkoutProcessing}
-          style={{ flex: 1, padding: completeLabel ? '18px 16px' : '16px', background: (cartTotal <= 0 || checkoutProcessing) ? t.bg4 : `linear-gradient(135deg,${t.accent},${t.accent2})`, color: (cartTotal <= 0 || checkoutProcessing) ? t.text3 : '#fff', border: 'none', borderRadius: 12, fontSize: completeLabel ? 15 : 16, fontWeight: 900, letterSpacing: completeLabel ? '0.04em' : undefined, textTransform: completeLabel ? 'uppercase' : undefined, cursor: (cartTotal <= 0 || checkoutProcessing) ? 'not-allowed' : 'pointer', boxShadow: (cartTotal > 0 && !checkoutProcessing) ? `0 6px 16px ${t.accent}45` : 'none' }}>
-          {checkoutProcessing ? 'Processing...'
-            : (qrPaymentStatus === 'processing' ? '⌛ Processing...'
-              : qrPaymentStatus === 'received' ? '✓ Payment Received'
-                : completeLabel
-                  ? 'Complete payment'
-                  : `${payMethod === 'Card' ? '💳' : payMethod === 'Cash' ? '💵' : payMethod === 'Split' ? '✂️' : '📱'} Pay ${fmt(cartTotal, settings?.sym)}`)}
-        </button>
-        <button type="button" onClick={() => setShowCustDisplay(true)} title="Customer Display" style={{ padding: '16px 14px', background: t.tealBg, border: `1px solid ${t.tealBorder}`, borderRadius: 12, color: t.teal, cursor: 'pointer', fontSize: 20 }}>🖥️</button>
-      </div>
+      {showPayButton && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <button type="button" onClick={checkout} disabled={cartTotal <= 0 || checkoutProcessing}
+            style={{ flex: 1, padding: completeLabel ? '18px 16px' : '16px', background: (cartTotal <= 0 || checkoutProcessing) ? t.bg4 : `linear-gradient(135deg,${t.accent},${t.accent2})`, color: (cartTotal <= 0 || checkoutProcessing) ? t.text3 : '#fff', border: 'none', borderRadius: 12, fontSize: completeLabel ? 15 : 16, fontWeight: 900, letterSpacing: completeLabel ? '0.04em' : undefined, textTransform: completeLabel ? 'uppercase' : undefined, cursor: (cartTotal <= 0 || checkoutProcessing) ? 'not-allowed' : 'pointer', boxShadow: (cartTotal > 0 && !checkoutProcessing) ? `0 6px 16px ${t.accent}45` : 'none' }}>
+            {checkoutProcessing ? 'Processing...'
+              : (qrPaymentStatus === 'processing' ? '⌛ Processing...'
+                : qrPaymentStatus === 'received' ? '✓ Payment Received'
+                  : completeLabel
+                    ? 'Complete payment'
+                    : `${payMethod === 'Card' ? '💳' : payMethod === 'Cash' ? '💵' : payMethod === 'Split' ? '✂️' : '📱'} Pay ${fmt(cartTotal, settings?.sym)}`)}
+          </button>
+          <button type="button" onClick={() => setShowCustDisplay(true)} title="Customer Display" style={{ padding: '16px 14px', background: t.tealBg, border: `1px solid ${t.tealBorder}`, borderRadius: 12, color: t.teal, cursor: 'pointer', fontSize: 20 }}>🖥️</button>
+        </div>
+      )}
     </>
   )
 }

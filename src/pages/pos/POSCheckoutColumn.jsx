@@ -1,6 +1,7 @@
-import { Toggle, Select } from '@/components/ui'
+import { useMemo } from 'react'
+import { Select } from '@/components/ui'
 import { fmt } from '@/lib/utils'
-import { POSPaymentForm } from './POSPaymentForm'
+import { BillingPanel } from './BillingPanel'
 
 const REASON_OPTIONS = [
   { value: 'damaged', label: 'Damaged' },
@@ -10,10 +11,8 @@ const REASON_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-/** Right column: quick tiles + promo + totals + payment (Terminal Precision layout). */
+/** Right column: customer (top) + billing + payment. */
 export function POSCheckoutColumn({
-  quickAccessProducts,
-  onQuickAdd,
   cart,
   setCart,
   appliedCoupon,
@@ -31,6 +30,11 @@ export function POSCheckoutColumn({
   cartTotal,
   pointsEarned,
   selCust,
+  setSelCust,
+  custSearch,
+  setCustSearch,
+  users = [],
+  setShowNewCust,
   loyaltyRedeem,
   setLoyaltyRedeem,
   user,
@@ -69,9 +73,19 @@ export function POSCheckoutColumn({
   const returnTotal = returnItems.reduce((s, i) => s + (i.price ?? 0) * (1 - (i.discount || 0) / 100) * (i.qty ?? 1), 0)
   const replacementTotal = replacementItems.reduce((s, i) => s + (i.price ?? 0) * (1 - (i.discount || 0) / 100) * (i.qty ?? 1), 0)
 
+  const customerMatches = useMemo(() => {
+    const q = custSearch.trim().toLowerCase()
+    if (!q) return []
+    return (users || []).filter(u => u.role === 'customer' && (
+      (u.phone && String(u.phone).includes(custSearch.trim())) ||
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q))
+    )).slice(0, 8)
+  }, [users, custSearch])
+
   return (
     <aside
-      className="pos-precision-checkout"
+      className="pos-precision-checkout pos-terminal-pay-column"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -80,105 +94,110 @@ export function POSCheckoutColumn({
         background: t.posRight,
         borderLeft: `1px solid ${t.border}`,
         overflow: 'hidden',
+        boxShadow: '-6px 0 24px rgba(15, 23, 42, 0.06)',
       }}
     >
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 12px', WebkitOverflowScrolling: 'touch' }}>
-        {quickAccessProducts?.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: t.text3, textTransform: 'uppercase', letterSpacing: 0.08, marginBottom: 12 }}>
-              Quick access
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {quickAccessProducts.map((p) => {
-                const disabled = (p.stock ?? 0) === 0
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => !disabled && onQuickAdd?.(p)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '12px 14px',
-                      borderRadius: 10,
-                      border: `1px solid ${t.border}`,
-                      background: t.card,
-                      cursor: disabled ? 'not-allowed' : 'pointer',
-                      opacity: disabled ? 0.45 : 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      minHeight: 72,
-                    }}
-                  >
-                    <span style={{ fontSize: 14, fontWeight: 800, color: t.text, lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</span>
-                    <span style={{ fontSize: 17, fontWeight: 900, color: t.accent }}>{fmt(p.price, settings?.sym)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        <div style={{ padding: 14, background: t.bg2, borderRadius: 12, border: `1px solid ${t.border}` }}>
-          {appliedCoupon ? (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: t.greenBg, border: `1px solid ${t.greenBorder}`, borderRadius: 8, padding: '9px 14px' }}>
-              <span style={{ fontSize: 14, color: t.green, fontWeight: 800 }}>{appliedCoupon.code} — {appliedCoupon.description}</span>
-              <button type="button" onClick={() => { setAppliedCoupon(null); setCouponCode('') }} style={{ background: 'none', border: 'none', color: t.red, cursor: 'pointer', fontSize: 17 }} aria-label="Remove coupon">✕</button>
+      <div className="pos-terminal-pay-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 12px', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: t.bg3, border: `1px solid ${t.border}`, boxShadow: '0 2px 12px rgba(15, 23, 42, 0.05)' }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: t.text4, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Step 3 · Customer</div>
+          {selCust ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>{selCust.name}</div>
+                <div style={{ fontSize: 12, color: t.yellow }}>{selCust.loyaltyPoints} pts · {selCust.tier}</div>
+              </div>
+              <button type="button" onClick={() => { setSelCust(null); setLoyaltyRedeem(false) }} style={{ background: t.redBg, border: `1px solid ${t.redBorder}`, color: t.red, borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>Clear</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-              <input
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                placeholder="Promo or coupon code"
-                style={{ flex: 1, background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: '11px 12px', color: t.text, fontSize: 14, outline: 'none' }}
-              />
-              <button type="button" onClick={applyCoupon} style={{ flexShrink: 0, minWidth: 44, background: t.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: 22, fontWeight: 800, cursor: 'pointer', lineHeight: 1 }} title="Apply">+</button>
-            </div>
-          )}
-
-          {selCust && (selCust.loyaltyPoints || 0) > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, background: t.yellowBg, border: `1px solid ${t.yellowBorder}`, borderRadius: 8, padding: '9px 14px' }}>
-              <span style={{ fontSize: 14, color: t.yellow, fontWeight: 700 }}>Redeem {selCust.loyaltyPoints} pts = {fmt(selCust.loyaltyPoints * (settings?.loyaltyValue || 0.01), settings?.sym)}</span>
-              <Toggle t={t} value={loyaltyRedeem} onChange={setLoyaltyRedeem} />
-            </div>
-          )}
-
-          {(user?.role === 'admin' || user?.role === 'manager') && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: t.text3 }}>Manual discount %</span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={0.5}
-                value={manualDiscountPct ?? 0}
-                onChange={(e) => setManualDiscountPct?.(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
-                style={{ width: 68, background: t.input, border: `1px solid ${t.border}`, borderRadius: 6, padding: '6px 10px', color: t.text, fontSize: 14, fontWeight: 700 }}
-              />
-            </div>
-          )}
-
-          <div style={{ marginTop: 14 }}>
-            {[
-              ['Subtotal', fmt(cartSubtotal, settings?.sym)],
-              ['Tax', fmt(cartTax, settings?.sym)],
-              couponDiscount > 0 && [`Discount (${appliedCoupon?.code})`, `-${fmt(couponDiscount, settings?.sym)}`],
-              loyaltyDiscount > 0 && ['Loyalty discount', `-${fmt(loyaltyDiscount, settings?.sym)}`],
-              manualDiscountAmount > 0 && [`Manual (${manualDiscountPct ?? 0}%)`, `-${fmt(manualDiscountAmount, settings?.sym)}`],
-            ].filter(Boolean).map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: String(v).startsWith('-') ? t.green : t.text3, marginBottom: 5 }}>
-                <span>{k}</span>
-                <span style={{ fontWeight: 700 }}>{v}</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 200px', minWidth: 0, position: 'relative' }}>
+                <input
+                  value={custSearch}
+                  onChange={e => setCustSearch(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && customerMatches[0]) {
+                      setSelCust(customerMatches[0])
+                      setCustSearch('')
+                    }
+                  }}
+                  placeholder="Phone, name, or email"
+                  autoComplete="off"
+                  aria-label="Customer search"
+                  aria-autocomplete="list"
+                  aria-controls="pos-checkout-cust-suggest"
+                  style={{ width: '100%', background: t.input, border: `1px solid ${t.border}`, borderRadius: 10, padding: '12px 14px', color: t.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                />
+                {custSearch.trim() && customerMatches.length > 0 && (
+                  <ul id="pos-checkout-cust-suggest" role="listbox" style={{ position: 'absolute', left: 0, right: 0, top: '100%', margin: 0, marginTop: 4, padding: 6, listStyle: 'none', background: t.bg2, border: `1px solid ${t.border}`, borderRadius: 10, zIndex: 50, maxHeight: 220, overflowY: 'auto', boxShadow: t.shadowMd }}>
+                    {customerMatches.map(c => (
+                      <li key={c.id} role="option">
+                        <button
+                          type="button"
+                          onClick={() => { setSelCust(c); setCustSearch('') }}
+                          style={{ width: '100%', textAlign: 'left', padding: '10px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: t.text, fontSize: 14 }}
+                        >
+                          <span style={{ fontWeight: 800 }}>{c.name}</span>
+                          <span style={{ display: 'block', fontSize: 12, color: t.text3 }}>{c.phone || c.email}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ))}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 14, marginTop: 10, borderTop: `2px solid ${t.border}` }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: t.text3, letterSpacing: 0.1, textTransform: 'uppercase' }}>Grand total</span>
-              <span style={{ fontSize: 32, fontWeight: 900, color: t.text, lineHeight: 1.1 }}>{fmt(cartTotal, settings?.sym)}</span>
+              <button type="button" onClick={() => setShowNewCust(true)} style={{ flex: '0 0 auto', background: t.blue, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', minHeight: 48 }}>+ New</button>
             </div>
-            {selCust && pointsEarned > 0 && <div style={{ fontSize: 13, color: t.yellow, textAlign: 'right', marginTop: 4 }}>+{pointsEarned} loyalty pts will be earned</div>}
-          </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 14, paddingBottom: 12, borderBottom: `1px solid ${t.border}` }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: t.text4, letterSpacing: '0.14em', textTransform: 'uppercase' }}>Step 4 · Pay</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: t.text, marginTop: 4, letterSpacing: '-0.02em' }}>Payment · totals</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: t.text3, marginTop: 4 }}>Select method, then complete payment</div>
+        </div>
+
+        <div style={{ padding: 16, borderRadius: 14, background: t.bg2, boxShadow: '0 2px 16px rgba(15, 23, 42, 0.06)' }}>
+          <BillingPanel
+            appliedCoupon={appliedCoupon}
+            setAppliedCoupon={setAppliedCoupon}
+            couponCode={couponCode}
+            setCouponCode={setCouponCode}
+            applyCoupon={applyCoupon}
+            cartSubtotal={cartSubtotal}
+            cartTax={cartTax}
+            couponDiscount={couponDiscount}
+            loyaltyDiscount={loyaltyDiscount}
+            manualDiscountPct={manualDiscountPct}
+            setManualDiscountPct={setManualDiscountPct}
+            manualDiscountAmount={manualDiscountAmount}
+            cartTotal={cartTotal}
+            pointsEarned={pointsEarned}
+            selCust={selCust}
+            loyaltyRedeem={loyaltyRedeem}
+            setLoyaltyRedeem={setLoyaltyRedeem}
+            user={user}
+            checkoutProcessing={checkoutProcessing}
+            payMethod={payMethod}
+            setPayMethod={setPayMethod}
+            cashGiven={cashGiven}
+            setCashGiven={setCashGiven}
+            cashGivenNum={cashGivenNum}
+            cashChange={cashChange}
+            splitCash={splitCash}
+            setSplitCash={setSplitCash}
+            splitCard={splitCard}
+            setSplitCard={setSplitCard}
+            cardNum={cardNum}
+            setCardNum={setCardNum}
+            setCardExp={setCardExp}
+            setCardCvv={setCardCvv}
+            checkout={checkout}
+            setShowCustDisplay={setShowCustDisplay}
+            qrPaymentStatus={qrPaymentStatus}
+            settings={settings}
+            t={t}
+            cartLength={cart.length}
+            loadedOrderForReturn={!!loadedOrderForReturn}
+          />
         </div>
       </div>
 
@@ -229,38 +248,7 @@ export function POSCheckoutColumn({
         ) : (
           <>
             {!loadedOrderForReturn && cart.length > 0 && (
-              <div style={{ marginBottom: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: t.text3, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Payment</div>
-                <div style={{ padding: 14, background: t.bg3, borderRadius: 12, border: `1px solid ${t.border}` }}>
-                  <POSPaymentForm
-                    payMethod={payMethod}
-                    setPayMethod={setPayMethod}
-                    cashGiven={cashGiven}
-                    setCashGiven={setCashGiven}
-                    cashGivenNum={cashGivenNum}
-                    cashChange={cashChange}
-                    cartTotal={cartTotal}
-                    splitCash={splitCash}
-                    setSplitCash={setSplitCash}
-                    splitCard={splitCard}
-                    setSplitCard={setSplitCard}
-                    cardNum={cardNum}
-                    setCardNum={setCardNum}
-                    setCardExp={setCardExp}
-                    setCardCvv={setCardCvv}
-                    checkout={checkout}
-                    setShowCustDisplay={setShowCustDisplay}
-                    checkoutProcessing={checkoutProcessing}
-                    qrPaymentStatus={qrPaymentStatus}
-                    settings={settings}
-                    t={t}
-                    primaryCta="complete"
-                  />
-                </div>
-              </div>
-            )}
-            {!loadedOrderForReturn && cart.length > 0 && (
-              <button type="button" onClick={() => { setCart([]); setManualDiscountPct?.(0) }} style={{ width: '100%', padding: '10px', marginTop: 10, background: 'transparent', color: t.text4, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+              <button type="button" onClick={() => { setCart([]); setManualDiscountPct?.(0) }} style={{ width: '100%', padding: '10px', background: 'transparent', color: t.text4, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
                 Clear cart
               </button>
             )}

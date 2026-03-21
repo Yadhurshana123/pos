@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTheme } from '@/context/ThemeContext'
 import { useAuth } from '@/context/AuthContext'
@@ -10,6 +10,7 @@ import dayjs from 'dayjs'
 import { POSProductGrid } from './POSProductGrid'
 import { POSCartPanel } from './POSCartPanel'
 import { POSCheckoutColumn } from './POSCheckoutColumn'
+import { SearchBar } from './SearchBar'
 import { CashierReturns } from '@/pages/cashier/CashierReturns'
 import { inventoryService, productsService, ordersService, parkedBillsService, paymentsService, sitePricesService, promotionsService, returnsService } from '@/services'
 import { isSupabaseConfigured } from '@/lib/supabase'
@@ -49,7 +50,7 @@ function buildLineAttributes(p, selectedAttrs, variantStr) {
 }
 
 export const POSTerminal = ({ products, setProducts, orders, setOrders, returns = [], setReturns, users, setUsers, coupons, settings, counters, addAudit, currentUser, siteId }) => {
-  const { t } = useTheme()
+  const { t, darkMode } = useTheme()
   const { currentUser: authUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -135,36 +136,53 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
   const [search, setSearch] = useState('')
   const [orderDisplayId] = useState(() => genId('ORD'))
 
-  const quickAccessProducts = useMemo(() => {
-    const withStock = products.filter((p) => (p.stock ?? 0) > 0)
-    const pick = (sub) => products.find((p) => p.name?.toLowerCase().includes(sub))
-    const a = pick('movie') || pick('ticket')
-    const b = pick('popcorn')
-    const out = []
-    if (a) out.push(a)
-    if (b && !out.some((x) => x.id === b.id)) out.push(b)
-    for (const p of withStock) {
-      if (out.length >= 2) break
-      if (!out.some((x) => x.id === p.id)) out.push(p)
-    }
-    return out.slice(0, 2)
-  }, [products])
+  const searchInputRef = useRef(null)
+  const modalSearchRef = useRef(null)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+
+  const pushRecentProductId = useCallback((productId) => {
+    if (!productId) return
+    try {
+      const key = 'pos_recent_product_ids'
+      const raw = localStorage.getItem(key)
+      const arr = raw ? JSON.parse(raw) : []
+      const next = [productId, ...arr.filter(id => id !== productId)].slice(0, 12)
+      localStorage.setItem(key, JSON.stringify(next))
+      window.dispatchEvent(new Event('pos-recent-update'))
+    } catch (_) { /* ignore */ }
+  }, [])
 
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return
       if (e.key === 'F4') {
         e.preventDefault()
-        document.querySelector('.pos-search-strip .pos-grid-header input')?.focus?.()
+        setShowSearchModal(true)
       }
       if (e.key === 'F2') {
         e.preventDefault()
-        setShowBarcodeInput(true)
+        searchInputRef.current?.focus?.({ preventScroll: true })
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  useEffect(() => {
+    if (!session) return
+    const tmr = requestAnimationFrame(() => {
+      searchInputRef.current?.focus?.({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(tmr)
+  }, [session])
+
+  useEffect(() => {
+    if (!showSearchModal) return
+    const tmr = requestAnimationFrame(() => {
+      modalSearchRef.current?.focus?.({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(tmr)
+  }, [showSearchModal])
 
   useEffect(() => {
     if (location.pathname === '/app/pos/payment') navigate('/app/pos', { replace: true })
@@ -298,6 +316,7 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
         lineAttributes,
       }]
     })
+    pushRecentProductId(p.id)
     if (disc > 0) notify(`🎉 ${disc}% offer applied on ${p.name}!`, 'success')
   }
 
@@ -468,6 +487,41 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
     notify('Return mode cleared', 'info')
   }
 
+  const handleSearchSubmit = useCallback(async () => {
+    const raw = search.trim()
+    if (!raw) return
+    if (/^ORD-/i.test(raw) || /^ord-/i.test(raw)) {
+      await loadOrderForReturn(raw)
+      setSearch('')
+      setShowSearchModal(false)
+      return
+    }
+    const direct = await resolveProductFromCode(raw)
+    if (direct) {
+      if (loadedOrderForReturn && returnProcessMode !== 'exchange') {
+        setScanMsg('↩️ Return mode — use Load Order')
+        setTimeout(() => setScanMsg(''), 2500)
+      } else if (removeMode) {
+        removeFromCart(direct.id)
+        setScanMsg(`Removed: ${direct.name}`)
+        setTimeout(() => setScanMsg(''), 2500)
+      } else {
+        handleProductClick(direct)
+      }
+      setSearch('')
+      setShowSearchModal(false)
+      return
+    }
+    const q = raw.toLowerCase()
+    const matches = products.filter(p =>
+      p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q))
+    if (matches.length > 0) {
+      handleProductClick(matches[0])
+      setSearch('')
+      setShowSearchModal(false)
+    }
+  }, [search, loadOrderForReturn, resolveProductFromCode, loadedOrderForReturn, returnProcessMode, removeMode, products, handleProductClick, removeFromCart])
+
   const processReturnFromCart = async () => {
     if (!loadedOrderForReturn || cart.length === 0) return
     const returnOnlyItems = cart.filter(i => i.orderItemId)
@@ -619,12 +673,6 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
     setTimeout(() => setScanMsg(''), 2500)
     setManualBarcode('')
     setShowBarcodeInput(false)
-  }
-
-  const lookupCustomer = () => {
-    const c = users.find(u => u.role === 'customer' && (u.phone === custSearch || u.name.toLowerCase().includes(custSearch.toLowerCase()) || u.email.toLowerCase().includes(custSearch.toLowerCase())))
-    if (c) { setSelCust(c); notify(`✓ ${c.name} — ⭐${c.loyaltyPoints} pts`, 'success') }
-    else notify('Customer not found. Add as new?', 'warning')
   }
 
   const sendNewCustOtp = () => {
@@ -814,12 +862,15 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
 
   return (
     <>
-    <div className="pos-layout pos-register-fullpage pos-precision-wrap" style={{ flexDirection: 'column', flex: 1, minHeight: 0, height: '100%', width: '100%', background: t.bg, padding: 0, gap: 0 }}>
-      <div className="pos-precision-body" style={{ flex: 1, minHeight: 0, width: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', minWidth: 0 }}>
+    <div className={`pos-layout pos-register-fullpage pos-precision-wrap pos-terminal-shell${darkMode ? ' pos-terminal-shell--dark' : ''}`} style={{ flexDirection: 'column', flex: 1, minHeight: 0, height: '100%', width: '100%', padding: 0, gap: 0 }}>
+      <div className="pos-precision-body pos-terminal-split" style={{ flex: 1, minHeight: 0, width: '100%' }}>
+        <div className="pos-terminal-workspace" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', minWidth: 0 }}>
           <POSProductGrid
             orderDisplayId={orderDisplayId}
             search={search} setSearch={setSearch}
+            searchInputRef={searchInputRef}
+            onSearchEnter={handleSearchSubmit}
+            setShowSearchModal={setShowSearchModal}
             filteredProds={filteredProds} getItemDiscount={getItemDiscount}
             addToCart={(loadedOrderForReturn && returnProcessMode !== 'exchange') ? () => { } : handleProductClick}
             scanMsg={scanMsg} parkBill={parkBill} parked={parked} recallBill={recallBill} showParkedDropdown={showParkedDropdown} setShowParkedDropdown={setShowParkedDropdown}
@@ -827,17 +878,16 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
             loadOrderInput={loadOrderInput} setLoadOrderInput={setLoadOrderInput} loadOrderForReturn={loadOrderForReturn} loadOrderLoading={loadOrderLoading} loadedOrderForReturn={loadedOrderForReturn}
             returnProcessMode={returnProcessMode} settings={settings} t={t}
           />
-          <div className="pos-cart-full" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 12px 12px' }}>
+          <div className="pos-cart-full pos-terminal-cart-wrap" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 14px 14px' }}>
             <POSCartPanel
               className="pos-cart-fullpage"
               checkoutSplit
-              cart={cart} updateQty={updateQty} setCart={setCart} removeFromCart={removeFromCart} removeMode={removeMode} setRemoveMode={setRemoveMode} cartSearch={cartSearch} setCartSearch={setCartSearch} selCust={selCust} setSelCust={setSelCust} custSearch={custSearch} setCustSearch={setCustSearch} lookupCustomer={lookupCustomer} setShowNewCust={setShowNewCust} loyaltyRedeem={loyaltyRedeem} setLoyaltyRedeem={setLoyaltyRedeem} appliedCoupon={appliedCoupon} setAppliedCoupon={setAppliedCoupon} couponCode={couponCode} setCouponCode={setCouponCode} applyCoupon={applyCoupon} cartSubtotal={cartSubtotal} cartTax={cartTax} couponDiscount={couponDiscount} loyaltyDiscount={loyaltyDiscount} manualDiscountPct={manualDiscountPct} setManualDiscountPct={setManualDiscountPct} manualDiscountAmount={manualDiscountAmount} cartTotal={cartTotal} pointsEarned={pointsEarned} updateCartItemPrice={updateCartItemPrice} user={user} checkoutProcessing={checkoutProcessing} payMethod={payMethod} setPayMethod={setPayMethod} cashGiven={cashGiven} setCashGiven={setCashGiven} cashGivenNum={cashGivenNum} cashChange={cashChange} splitCash={splitCash} setSplitCash={setSplitCash} splitCard={splitCard} setSplitCard={setSplitCard} cardNum={cardNum} setCardNum={setCardNum} setCardExp={setCardExp} setCardCvv={setCardCvv} checkout={checkout} setShowCustDisplay={setShowCustDisplay} qrPaymentStatus={qrPaymentStatus} settings={settings} t={t} loadedOrderForReturn={loadedOrderForReturn} processReturnFromCart={processReturnFromCart} clearReturnMode={clearReturnMode} returnReasonCode={returnReasonCode} setReturnReasonCode={setReturnReasonCode} returnProcessMode={returnProcessMode} setReturnProcessMode={setReturnProcessMode} returnRefundMethod={returnRefundMethod} setReturnRefundMethod={setReturnRefundMethod}
+              cart={cart} updateQty={updateQty} setCart={setCart} removeFromCart={removeFromCart} removeMode={removeMode} setRemoveMode={setRemoveMode} cartSearch={cartSearch} setCartSearch={setCartSearch} selCust={selCust} loyaltyRedeem={loyaltyRedeem} setLoyaltyRedeem={setLoyaltyRedeem} appliedCoupon={appliedCoupon} setAppliedCoupon={setAppliedCoupon} couponCode={couponCode} setCouponCode={setCouponCode} applyCoupon={applyCoupon} cartSubtotal={cartSubtotal} cartTax={cartTax} couponDiscount={couponDiscount} loyaltyDiscount={loyaltyDiscount} manualDiscountPct={manualDiscountPct} setManualDiscountPct={setManualDiscountPct} manualDiscountAmount={manualDiscountAmount} cartTotal={cartTotal} pointsEarned={pointsEarned} updateCartItemPrice={updateCartItemPrice} user={user} checkoutProcessing={checkoutProcessing} payMethod={payMethod} setPayMethod={setPayMethod} cashGiven={cashGiven} setCashGiven={setCashGiven} cashGivenNum={cashGivenNum} cashChange={cashChange} splitCash={splitCash} setSplitCash={setSplitCash} splitCard={splitCard} setSplitCard={setSplitCard} cardNum={cardNum} setCardNum={setCardNum} setCardExp={setCardExp} setCardCvv={setCardCvv} checkout={checkout} setShowCustDisplay={setShowCustDisplay} qrPaymentStatus={qrPaymentStatus} settings={settings} t={t} loadedOrderForReturn={loadedOrderForReturn} processReturnFromCart={processReturnFromCart} clearReturnMode={clearReturnMode} returnReasonCode={returnReasonCode} setReturnReasonCode={setReturnReasonCode} returnProcessMode={returnProcessMode} setReturnProcessMode={setReturnProcessMode} returnRefundMethod={returnRefundMethod} setReturnRefundMethod={setReturnRefundMethod}
+              onEmptyScan={() => setShowBarcodeInput(true)}
             />
           </div>
         </div>
         <POSCheckoutColumn
-          quickAccessProducts={quickAccessProducts}
-          onQuickAdd={(loadedOrderForReturn && returnProcessMode !== 'exchange') ? () => { } : handleProductClick}
           cart={cart}
           setCart={setCart}
           appliedCoupon={appliedCoupon}
@@ -855,6 +905,11 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
           cartTotal={cartTotal}
           pointsEarned={pointsEarned}
           selCust={selCust}
+          setSelCust={setSelCust}
+          custSearch={custSearch}
+          setCustSearch={setCustSearch}
+          users={users}
+          setShowNewCust={setShowNewCust}
           loyaltyRedeem={loyaltyRedeem}
           setLoyaltyRedeem={setLoyaltyRedeem}
           user={user}
@@ -982,6 +1037,51 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
               <Btn t={t} variant="ghost" onClick={() => setShowBarcodeInput(false)} style={{ flex: 1 }}>Cancel</Btn>
               {barcodeScanMode === 'manual' && <Btn t={t} variant="success" onClick={() => handleBarcodeScan(manualBarcode)} disabled={!manualBarcode.trim()} style={{ flex: 1 }}>✓ Lookup</Btn>}
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {showSearchModal && (
+        <Modal t={t} title="Product search" subtitle="Enter adds first match or exact barcode" onClose={() => setShowSearchModal(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <SearchBar
+              ref={modalSearchRef}
+              value={search}
+              onChange={setSearch}
+              onEnter={handleSearchSubmit}
+              onFocusSearch={() => modalSearchRef.current?.focus?.()}
+              t={t}
+            />
+            <div style={{ maxHeight: 320, overflowY: 'auto', borderRadius: 10, border: `1px solid ${t.border}`, background: t.bg2 }}>
+              {filteredProds.length === 0 ? (
+                <div style={{ padding: 16, color: t.text3, fontSize: 14 }}>Type a name or SKU, or paste a barcode and press Enter.</div>
+              ) : (
+                filteredProds.slice(0, 40).map(p => {
+                  const disc = getItemDiscount(p)
+                  const linePrice = disc > 0 ? p.price * (1 - disc / 100) : p.price
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => { handleProductClick(p); setSearch(''); setShowSearchModal(false) }}
+                      disabled={p.stock === 0}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                        width: '100%', textAlign: 'left', padding: '12px 14px', border: 'none', borderBottom: `1px solid ${t.border}`,
+                        background: t.bg2, cursor: p.stock === 0 ? 'not-allowed' : 'pointer', opacity: p.stock === 0 ? 0.45 : 1,
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>{p.name}</div>
+                        <div style={{ fontSize: 12, color: t.text3 }}>SKU {p.sku || p.id}</div>
+                      </div>
+                      <div style={{ fontWeight: 900, color: disc > 0 ? t.accent : t.green }}>{disc > 0 ? fmt(linePrice, settings?.sym) : fmt(p.price, settings?.sym)}</div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+            <Btn t={t} variant="ghost" onClick={() => { setShowSearchModal(false); setShowBarcodeInput(true) }} fullWidth>Open camera / manual barcode</Btn>
           </div>
         </Modal>
       )}
