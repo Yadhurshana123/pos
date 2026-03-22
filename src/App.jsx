@@ -25,13 +25,13 @@ import { GuestProductDetail } from '@/pages/guest/GuestProductDetail'
 import { ProfilePage } from '@/pages/shared/ProfilePage'
 
 const AdminDashboard = lazyRetry(() => import('@/pages/admin/AdminDashboard'), 'AdminDashboard')
-const AdminAnalytics = lazyRetry(() => import('@/pages/admin/AdminAnalytics'), 'AdminAnalytics')
+const AdminSalesDashboard = lazyRetry(() => import('@/pages/admin/sales-dashboard'))
 const AdminCustomers = lazyRetry(() => import('@/pages/admin/AdminCustomers'), 'AdminCustomers')
 const UserManagement = lazyRetry(() => import('@/pages/admin/UserManagement'), 'UserManagement')
 const AuditLogs = lazyRetry(() => import('@/pages/admin/AuditLogs'), 'AuditLogs')
 const BannerManagement = lazyRetry(() => import('@/pages/admin/BannerManagement'), 'BannerManagement')
 const CouponManagement = lazyRetry(() => import('@/pages/admin/CouponManagement'), 'CouponManagement')
-const ZReport = lazyRetry(() => import('@/pages/admin/ZReport'), 'ZReport')
+const ZReport = lazyRetry(() => import('@/pages/manager/ZReport'), 'ZReport')
 const SettingsPage = lazyRetry(() => import('@/pages/admin/SettingsPage'), 'SettingsPage')
 const VenueSiteManagement = lazyRetry(() => import('@/pages/admin/VenueSiteManagement'), 'VenueSiteManagement')
 
@@ -67,6 +67,7 @@ const PickupOrders = lazyRetry(() => import('@/pages/staff/PickupOrders'), 'Pick
 import {
   INITIAL_PRODUCTS, INITIAL_USERS, INITIAL_ORDERS, INITIAL_RETURNS,
   INITIAL_BANNERS, INITIAL_COUPONS, INITIAL_COUNTERS, INITIAL_SETTINGS,
+  INITIAL_AUDIT_LOGS,
 } from '@/core'
 import { supabase } from '@/lib/supabase'
 import { ts } from '@/lib/utils'
@@ -196,19 +197,23 @@ function RealtimeWatcher() {
   return null
 }
 
-function AppContent() {
+function AppContent({ rootUsers, setRootUsers }) {
   const { t, darkMode, setDarkMode } = useTheme()
   const { currentUser, isDemoMode } = useAuth()
 
   const [products, setProducts] = useState(INITIAL_PRODUCTS)
   const [orders, setOrders] = useState(INITIAL_ORDERS)
   const [returns, setReturns] = useState(INITIAL_RETURNS)
-  const [users, setUsers] = useState(INITIAL_USERS)
+  
+  // Use the global users state
+  const users = rootUsers
+  const setUsers = setRootUsers
+
   const [counters, setCounters] = useState(INITIAL_COUNTERS)
   const [settings, setSettings] = useState(INITIAL_SETTINGS)
   const [banners, setBanners] = useState(INITIAL_BANNERS)
   const [coupons, setCoupons] = useState(INITIAL_COUPONS)
-  const [auditLogs, setAuditLogs] = useState([])
+  const [auditLogs, setAuditLogs] = useState(INITIAL_AUDIT_LOGS)
 
   useSupabaseSync(setProducts, 'products', INITIAL_PRODUCTS, productsService.fetchProducts)
   useSupabaseSync(setOrders, 'orders', INITIAL_ORDERS, () => import('@/services').then(m => m.ordersService.fetchOrders()))
@@ -308,7 +313,7 @@ function AppContent() {
             {/* Admin Routes */}
             <Route path="analytics" element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <AdminAnalytics orders={orders} products={products} settings={settings} t={t} />
+                <AdminSalesDashboard settings={settings} addGlobalNotif={addGlobalNotif} t={t} />
               </ProtectedRoute>
             } />
             <Route path="reports" element={
@@ -323,7 +328,7 @@ function AppContent() {
             } />
             <Route path="users" element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <UserManagement users={users} t={t} />
+                <UserManagement users={users} setUsers={setUsers} addAudit={addAudit} addGlobalNotif={addGlobalNotif} t={t} />
               </ProtectedRoute>
             } />
             <Route path="audit" element={
@@ -342,7 +347,7 @@ function AppContent() {
               </ProtectedRoute>
             } />
             <Route path="z-report" element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['admin', 'manager']}>
                 <ZReport orders={orders} settings={settings} t={t} />
               </ProtectedRoute>
             } />
@@ -462,15 +467,23 @@ function AppContent() {
 }
 
 export default function App() {
-  const [users, setUsers] = useState(INITIAL_USERS)
+  const [rootUsers, setRootUsers] = useState(INITIAL_USERS)
+  
+  // Sync users with Supabase (profiles table)
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    supabase.from('profiles').select('*').then(({ data, error }) => {
+      if (!error && data?.length > 0) setRootUsers(data)
+    })
+  }, [])
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ThemeProvider>
-            <AuthProvider allUsers={users} onUsersChange={setUsers}>
-              <AppContent />
+            <AuthProvider allUsers={rootUsers} onUsersChange={setRootUsers}>
+              <AppContent rootUsers={rootUsers} setRootUsers={setRootUsers} />
             </AuthProvider>
           </ThemeProvider>
         </BrowserRouter>

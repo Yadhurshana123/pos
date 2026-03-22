@@ -142,3 +142,14 @@ export const TIER_CONFIG = {
   Silver: { min: 500, max: 1499, color: "#9ca3af", bg: "#1a1f2a", label: "Silver", icon: "🥈" },
   Gold: { min: 1500, max: Infinity, color: "#f59e0b", bg: "#2a1e00", label: "Gold", icon: "🥇" },
 };
+
+export const INITIAL_AUDIT_LOGS = [
+  { id: "LOG-1711100001", user: "Alex Rivera", role: "admin", action: "login", module: "Auth", details: "Admin session started", timestamp: "22/03/2026, 09:00:12" },
+  { id: "LOG-1711100002", user: "Sam Chen", role: "manager", action: "update", module: "Inventory", details: "Updated stock for 'Home Jersey 2024' (+50 units)", timestamp: "22/03/2026, 10:15:45" },
+  { id: "LOG-1711100003", user: "Alex Rivera", role: "admin", action: "create", module: "Users", details: "Created new cashier account: Jordan Lee", timestamp: "22/03/2026, 11:30:00" },
+  { id: "LOG-1711100004", user: "Jordan Lee", role: "cashier", action: "login", module: "Auth", details: "Shift started at Counter 1", timestamp: "22/03/2026, 12:45:10" },
+  { id: "LOG-1711100005", user: "System", role: "system", action: "update", module: "Orders", details: "Order ORD-0007 status updated to 'delivered'", timestamp: "22/03/2026, 14:20:05" },
+  { id: "LOG-1711100006", user: "Sam Chen", role: "manager", action: "delete", module: "Products", details: "Removed inactive product: 'Legacy Scarf v1'", timestamp: "22/03/2026, 15:05:33" },
+  { id: "LOG-1711100007", user: "Alex Rivera", role: "admin", action: "update", module: "Settings", details: "Changed store default tax to 20%", timestamp: "22/03/2026, 15:45:12" },
+  { id: "LOG-1711100008", user: "Jordan Lee", role: "cashier", action: "create", module: "Orders", details: "Processed cash sale ORD-0002", timestamp: "22/03/2026, 16:10:00" }
+];
