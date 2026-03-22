@@ -12,42 +12,8 @@ export function POSProductGrid({
   settings, t,
 }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.posLeft, borderRight: `1px solid ${t.border}` }} className="pos-left">
-      <div className="pos-grid-header" style={{ padding: '8px 10px', borderBottom: `1px solid ${t.border}`, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        {loadedOrderForReturn ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 200, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: t.yellow, background: t.yellowBg, padding: '6px 10px', borderRadius: 8, border: `1px solid ${t.yellowBorder}` }}>
-              {returnProcessMode === 'exchange' ? '↔ Exchange: Add replacement items below' : `↩️ Return: ${loadedOrderForReturn.order_number || loadedOrderForReturn.id}`}
-            </span>
-          </div>
-        ) : (
-          <>
-            <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search / SKU..." style={{ width: '100%', background: t.input, border: `1px solid ${t.border}`, borderRadius: 9, padding: '8px 14px 8px 34px', color: t.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>🔍</span>
-            </div>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <input value={loadOrderInput} onChange={e => setLoadOrderInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadOrderForReturn()} placeholder="Order #" style={{ width: 90, background: t.input, border: `1px solid ${t.border}`, borderRadius: 9, padding: '8px 10px', color: t.text, fontSize: 12, outline: 'none' }} />
-              <button onClick={() => loadOrderForReturn()} disabled={loadOrderLoading || !loadOrderInput?.trim()} style={{ padding: '8px 12px', background: t.yellowBg, border: `1px solid ${t.yellowBorder}`, borderRadius: 9, color: t.yellow, fontSize: 12, fontWeight: 800, cursor: loadOrderLoading || !loadOrderInput?.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{loadOrderLoading ? '...' : '↩️ Load'}</button>
-            </div>
-          </>
-        )}
-        <button onClick={() => setShowBarcodeInput(true)} style={{ padding: '8px 12px', background: t.blueBg, border: `1px solid ${t.blueBorder}`, borderRadius: 9, color: t.blue, fontSize: 12, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>📷 Scan</button>
-        {setShowReturnModal ? <button onClick={() => setShowReturnModal(true)} style={{ padding: '8px 12px', background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 9, color: t.text2, fontSize: 12, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>↩️ Return</button> : null}
-        {setShowReprint ? <button onClick={() => setShowReprint(true)} style={{ padding: '8px 12px', background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 9, color: t.text2, fontSize: 12, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>🖨️ Reprint</button> : null}
-        {scanMsg && <span style={{ fontSize: 12, color: t.green, fontWeight: 700 }}>{scanMsg}</span>}
-        <button onClick={parkBill} style={{ padding: '8px 12px', background: t.yellowBg, border: `1px solid ${t.yellowBorder}`, borderRadius: 9, color: t.yellow, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>⏸ Park</button>
-        {parked.length > 0 && (
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => setShowParkedDropdown(v => !v)} style={{ padding: '8px 12px', background: t.purpleBg, border: `1px solid ${t.purpleBorder}`, borderRadius: 9, color: t.purple, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>📋 Recall ({parked.length})</button>
-            {showParkedDropdown && (
-              <div style={{ position: 'absolute', top: '110%', left: 0, background: t.bg2, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8, zIndex: 100, minWidth: 200, boxShadow: t.shadowMd }}>
-                {parked.map(pb => <button key={pb.id} onClick={() => recallBill(pb)} style={{ display: 'block', width: '100%', padding: '8px 12px', background: 'none', border: 'none', color: t.text, cursor: 'pointer', textAlign: 'left', fontSize: 12, borderRadius: 6 }}>📋 {pb.id} — {pb.cart.length} items · {pb.ts}</button>)}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.posLeft }} className="pos-left">
+      {/* Redundant header removed - actions moved to Top Bar in POSTerminal */}
 
       {favProds.length > 0 && (
         <div style={{ padding: '8px 12px', borderBottom: `1px solid ${t.border}`, background: t.bg3 }}>
@@ -69,39 +35,7 @@ export function POSProductGrid({
         </div>
       )}
 
-      <div style={{ padding: '10px', borderBottom: `1px solid ${t.border}`, display: 'flex', gap: 6, alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
-          {(categories || []).map(c => <button key={c} onClick={() => setCat(c)} style={{ padding: '5px 13px', borderRadius: 20, border: 'none', background: cat === c ? t.accent : t.bg4, color: cat === c ? '#fff' : t.text3, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>{c}</button>)}
-        </div>
-      </div>
-
-      <div className="pos-products-grid" style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, alignContent: 'start' }}>
-        {filteredProds.map(p => {
-          const disc = getItemDiscount(p)
-          return (
-            <div key={p.id} onClick={() => addToCart(p)} style={{ background: t.card, border: `1px solid ${disc > 0 ? t.accent : t.border}`, borderRadius: 16, cursor: p.stock === 0 ? 'not-allowed' : 'pointer', opacity: p.stock === 0 ? 0.45 : 1, transition: 'all 0.12s', boxShadow: t.shadow, position: 'relative', height: 262, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-              onMouseEnter={e => { if (p.stock > 0) e.currentTarget.style.boxShadow = t.shadowMd }}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = t.shadow}>
-              {disc > 0 && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 1, background: t.accent, color: '#fff', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 900 }}>-{disc}%</div>}
-              <div style={{ height: 158, width: '100%', background: t.bg3, overflow: 'hidden' }}>
-                <ImgWithFallback src={p.image || p.image_url || PRODUCT_IMAGES[p.name]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              </div>
-              <div style={{ padding: '9px 10px 8px', marginBottom: 8, flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: t.text, lineHeight: 1.35, marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                {disc > 0 ? <><div style={{ fontSize: 10, color: t.text4, textDecoration: 'line-through' }}>{fmt(p.price, settings?.sym)}</div><div style={{ fontSize: 13, fontWeight: 900, color: t.accent }}>{fmt(p.price * (1 - disc / 100), settings?.sym)}</div></> : <div style={{ fontSize: 13, fontWeight: 900, color: t.green }}>{fmt(p.price, settings?.sym)}</div>}
-                <div style={{ fontSize: 10, marginTop: 3, color: p.stock <= 5 ? t.red : t.text4 }}>Stk:{p.stock}</div>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); addToCart(p) }}
-                disabled={p.stock === 0}
-                style={{ width: '100%', border: 'none', borderRadius: 999, padding: '8px 10px', background: p.stock === 0 ? t.bg4 : '#16c47f', color: p.stock === 0 ? t.text3 : '#fff', fontSize: 11, fontWeight: 800, cursor: p.stock === 0 ? 'not-allowed' : 'pointer' }}
-              >
-                + ADD
-              </button>
-            </div>
-          )
-        })}
-      </div>
+      {/* Note: Product Categories and Grid removed as per request to simplify UI and focus on header/favorites/scanning */}
     </div>
   )
 }

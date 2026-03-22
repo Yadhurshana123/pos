@@ -1,4 +1,10 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { isUuid } from '@/lib/utils'
+
+/** Only pass values Postgres uuid columns accept; local demo IDs (e.g. Date.now()) become null. */
+function asUuidOrNull(v) {
+  return isUuid(v) ? String(v).trim() : null
+}
 
 /** Map DB order to app format (camelCase) */
 function toAppFormat(row) {
@@ -56,10 +62,10 @@ export async function createOrder(order) {
 export async function createOrderWithItems({ siteId, counterId, cashierId, customerId, items, subtotal, taxAmount, discountAmount, loyaltyDiscount, total, paymentMethod, paymentDetails, loyaltyEarned, loyaltyUsed, manualDiscountPct }) {
   if (!isSupabaseConfigured()) return null
   const orderPayload = {
-    site_id: siteId || null,
-    counter_id: counterId || null,
-    customer_id: customerId || null,
-    cashier_id: cashierId || null,
+    site_id: asUuidOrNull(siteId),
+    counter_id: asUuidOrNull(counterId),
+    customer_id: asUuidOrNull(customerId),
+    cashier_id: asUuidOrNull(cashierId),
     order_type: 'in-store',
     status: 'completed',
     subtotal: Number(subtotal),
@@ -80,8 +86,8 @@ export async function createOrderWithItems({ siteId, counterId, cashierId, custo
 
   const orderItems = items.map((i) => ({
     order_id: order.id,
-    product_id: i.productId || i.product_id,
-    variant_id: i.variantId || null,
+    product_id: asUuidOrNull(i.productId || i.product_id),
+    variant_id: asUuidOrNull(i.variantId || i.variant_id),
     product_name: i.name,
     quantity: i.qty,
     unit_price: Number(i.price),
