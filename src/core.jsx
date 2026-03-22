@@ -5,7 +5,7 @@
 export { 
   PRODUCT_IMAGES, INITIAL_PRODUCTS, INITIAL_USERS, INITIAL_ORDERS, 
   INITIAL_RETURNS, INITIAL_BANNERS, INITIAL_COUPONS, INITIAL_COUNTERS, 
-  INITIAL_SETTINGS, INITIAL_PARKED, CATEGORIES, TIER_CONFIG 
+  INITIAL_SETTINGS, INITIAL_PARKED, INITIAL_AUDIT_LOGS, CATEGORIES, TIER_CONFIG 
 } from '@/lib/seed-data'
 
 export { THEMES } from '@/lib/theme'
@@ -62,8 +62,8 @@ export const Sidebar = ({ user, activeSection, setActiveSection, onLogout, t }) 
   if (!user) return null;
   const theme = t;
   const navByRole = {
-    admin: [{ key: "dashboard", l: "Dashboard", i: "📊" }, { key: "analytics", l: "Analytics", i: "📈" }, { key: "customers", l: "Customers", i: "👥" }, { key: "users", l: "All Users", i: "🔑" }, { key: "staff", l: "Staff Mgmt", i: "👥" }, { key: "audit", l: "Audit Logs", i: "📋" }, { key: "banners", l: "Banners", i: "🖼️" }, { key: "coupons", l: "Coupons", i: "🎟️" }, { key: "zreport", l: "Z-Report", i: "📑" }, { key: "settings", l: "Settings", i: "⚙️" }],
-    manager: [{ key: "dashboard", l: "Dashboard", i: "📊" }, { key: "staffdash", l: "Staff Dashboard", i: "🖥️" }, { key: "pickup", l: "Pickup Orders", i: "📦" }, { key: "products", l: "Products", i: "🏷️" }, { key: "inventory", l: "Inventory", i: "📦" }, { key: "staff", l: "Staff Mgmt", i: "👥" }, { key: "cashiers", l: "Cashier Mgmt", i: "🛒" }, { key: "counters", l: "Counters", i: "🏪" }, { key: "returns", l: "Returns", i: "↩️" }, { key: "reports", l: "Reports", i: "📈" }],
+    admin: [{ key: "dashboard", l: "Dashboard", i: "📊" }, { key: "analytics", l: "Analytics", i: "📈" }, { key: "customers", l: "Customers", i: "👥" }, { key: "users", l: "All Users", i: "🔑" }, { key: "staff", l: "Staff Mgmt", i: "👥" }, { key: "audit", l: "Audit Logs", i: "📋" }, { key: "banners", l: "Banners", i: "🖼️" }, { key: "coupons", l: "Coupons", i: "🎟️" }, { key: "settings", l: "Settings", i: "⚙️" }],
+    manager: [{ key: "dashboard", l: "Dashboard", i: "📊" }, { key: "staffdash", l: "Staff Dashboard", i: "🖥️" }, { key: "pickup", l: "Pickup Orders", i: "📦" }, { key: "products", l: "Products", i: "🏷️" }, { key: "inventory", l: "Inventory", i: "📦" }, { key: "staff", l: "Staff Mgmt", i: "👥" }, { key: "cashiers", l: "Cashier Mgmt", i: "🛒" }, { key: "counters", l: "Counters", i: "🏪" }, { key: "returns", l: "Returns", i: "↩️" }, { key: "reports", l: "Reports", i: "📈" }, { key: "zreport", l: "Z-Report", i: "📑" }],
     cashier: [{ key: "pos", l: "POS Terminal", i: "🛒" }, { key: "orders", l: "My Orders", i: "🧾" }, { key: "returns", l: "Returns", i: "↩️" }, { key: "pickup", l: "Pickup Orders", i: "📦" }, { key: "hardware", l: "Hardware", i: "🖨️" }, { key: "profile", l: "Profile", i: "👤" }],
     staff: [{ key: "staffdash", l: "Order Queue", i: "📋" }, { key: "pickup", l: "Pickup Verify", i: "📦" }, { key: "profile", l: "Profile", i: "👤" }],
     customer: [{ key: "shop", l: "Shop", i: "🛍️" }, { key: "history", l: "My Orders", i: "📜" }, { key: "tracking", l: "Track Orders", i: "📍" }, { key: "returns", l: "Returns", i: "↩️" }, { key: "profile", l: "Profile", i: "👤" }],
