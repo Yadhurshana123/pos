@@ -41,6 +41,7 @@ const navByRole = {
     { key: 'pos', l: 'POS Terminal', i: '🛒' },
     { key: 'returns', l: 'Returns', i: '↩️' },
     { key: 'pickup', l: 'Pickup Orders', i: '📦' },
+    { key: 'zreport', l: 'Z-Report', i: '📑' },
   ],
   cashier: [
     { type: 'group', l: 'Selling' },

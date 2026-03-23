@@ -32,18 +32,18 @@ const QtyInput = ({ qty, onChange, t, focusTrigger }) => {
       value={val}
       onChange={e => setVal(e.target.value)}
       onBlur={() => {
-        let n = parseInt(val, 10);
-        if (isNaN(n) || n < 1) n = 1;
-        setVal(n);
-        if (n !== qty) onChange(n);
+        let n = parseInt(val, 10)
+        if (isNaN(n) || n < 1) n = 1
+        setVal(n)
+        if (n !== qty) onChange(n)
       }}
       onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
       onFocus={e => e.target.select()}
       style={{
-        width: 36, height: 22, textAlign: 'center',
-        border: `1px solid ${t.border}`, borderRadius: 4,
-        background: t.bg, fontSize: 13, fontWeight: 900, color: t.text, outline: 'none',
-        MozAppearance: 'textfield', padding: 0, margin: 0
+        width: 44, height: 30, textAlign: 'center',
+        border: `1px solid ${t.border}`, borderRadius: 6,
+        background: t.bg, fontSize: 15, fontWeight: 900, color: t.text, outline: 'none',
+        MozAppearance: 'textfield', padding: 0, margin: 0,
       }}
     />
   )
@@ -52,11 +52,13 @@ const QtyInput = ({ qty, onChange, t, focusTrigger }) => {
 export function POSCartPanel({
   cart, updateQty, setCart,
   removeFromCart, removeMode, setRemoveMode, cartSearch, setCartSearch,
-  selCust, setSelCust, custSearch, setCustSearch, lookupCustomer, setShowNewCust,
+  selCust,
   loyaltyRedeem, setLoyaltyRedeem,
   appliedCoupon, setAppliedCoupon, couponCode, setCouponCode, applyCoupon,
   cartSubtotal, cartTax, couponDiscount, loyaltyDiscount, manualDiscountPct, setManualDiscountPct, manualDiscountAmount,
   cartTotal, pointsEarned,
+  updateCartItemPrice, user,
+  checkoutProcessing,
   payMethod, setPayMethod,
   cashGiven, setCashGiven, cashGivenNum, cashChange,
   cardNum, setCardNum, setCardExp, setCardCvv,
