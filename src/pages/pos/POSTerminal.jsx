@@ -1046,7 +1046,7 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
 
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
           {[
-            { label: 'TP SALE', icon: '🔥', color: '#f1f5f9', textColor: '#1e293b', onClick: () => { setSearch('Jersey'); notify('Filtering for Top Sale Items', 'success') } },
+            { label: 'TOP SALE', icon: '🔥', color: '#f1f5f9', textColor: '#1e293b', onClick: () => { setSearch('Jersey'); notify('Filtering for Top Sale Items', 'success') } },
             { label: 'LOGOUT', icon: '⏻', color: '#ffedd5', textColor: '#9a3412', onClick: () => navigate('/logout') },
           ].map((btn, idx) => (
             <button
@@ -1114,7 +1114,7 @@ export const POSTerminal = ({ products, setProducts, orders, setOrders, returns 
                 />
                 <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14 }}>🔍</span>
 
-              {search.length > 1 && (
+              {search.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', borderRadius: 8, zIndex: 1000, maxHeight: 400, overflowY: 'auto', marginTop: 6, border: '1px solid #e2e8f0' }}>
                   {filteredProds.length === 0 ? (
                     <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: 13 }}>No products found</div>
