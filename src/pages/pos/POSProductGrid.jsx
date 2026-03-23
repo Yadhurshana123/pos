@@ -12,22 +12,60 @@ export function POSProductGrid({
   settings, t,
 }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.posLeft }} className="pos-left">
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f8fafc' }} className="pos-left">
       {/* Redundant header removed - actions moved to Top Bar in POSTerminal */}
 
       {favProds.length > 0 && (
-        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${t.border}`, background: t.bg3 }}>
-          <div style={{ fontSize: 10, color: t.text3, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>⭐ Favourites</div>
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>⭐ Quick Access Favorites</div>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
             {favProds.map(p => {
               const disc = getItemDiscount(p)
               return (
-                <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock === 0} style={{ flexShrink: 0, background: t.card, border: `1px solid ${disc > 0 ? t.accent : t.border}`, borderRadius: 9, padding: '6px 12px', cursor: p.stock === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: p.stock === 0 ? 0.4 : 1 }}>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: t.green, fontWeight: 800 }}>{disc > 0 ? <><s style={{ color: t.text3 }}>{fmt(p.price, settings?.sym)}</s> {fmt(p.price * (1 - disc / 100), settings?.sym)}</> : fmt(p.price, settings?.sym)}</div>
+                <button 
+                  key={p.id} 
+                  onClick={() => addToCart(p)} 
+                  disabled={p.stock === 0} 
+                  className="scale-in"
+                  style={{ 
+                    flexShrink: 0, 
+                    background: '#fff', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: 16, 
+                    padding: '12px 16px', 
+                    cursor: p.stock === 0 ? 'not-allowed' : 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 12, 
+                    opacity: p.stock === 0 ? 0.4 : 1,
+                    transition: 'all 0.2s',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.05)'
+                    e.currentTarget.style.borderColor = '#cbd5e1'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.02)'
+                    e.currentTarget.style.borderColor = '#e2e8f0'
+                  }}
+                >
+                  <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #f1f5f9' }}>
+                    <ImgWithFallback src={p.image || p.image_url || PRODUCT_IMAGES[p.name]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  {disc > 0 && <span style={{ fontSize: 9, background: t.accent, color: '#fff', borderRadius: 5, padding: '1px 5px', fontWeight: 900 }}>-{disc}%</span>}
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: '#6366f1', fontWeight: 800, marginTop: 2 }}>
+                      {disc > 0 ? (
+                        <><s style={{ color: '#94a3b8', fontSize: 11, marginRight: 6 }}>{fmt(p.price, settings?.sym)}</s> {fmt(p.price * (1 - disc / 100), settings?.sym)}</>
+                      ) : (
+                        fmt(p.price, settings?.sym)
+                      )}
+                    </div>
+                  </div>
+                  {disc > 0 && <span style={{ fontSize: 10, background: '#ef4444', color: '#fff', borderRadius: 8, padding: '2px 8px', fontWeight: 900, marginLeft: 4 }}>-{disc}%</span>}
                 </button>
               )
             })}

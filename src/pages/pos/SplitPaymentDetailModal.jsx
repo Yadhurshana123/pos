@@ -11,6 +11,7 @@ export function SplitPaymentDetailModal({
   settings,
   t,
   onCompleteSplitPayment,
+  isMobile
 }) {
   const [payments, setPayments] = useState([])
   const [activeTab, setActiveTab] = useState('cash')
@@ -100,35 +101,36 @@ export function SplitPaymentDetailModal({
       <div
         style={{
           background: t.card || '#fff',
-          borderRadius: 16,
+          borderRadius: isMobile ? 0 : 16,
           maxWidth: 680,
           width: '100%',
-          maxHeight: '90vh',
+          maxHeight: isMobile ? '100%' : '90vh',
+          height: isMobile ? '100%' : 'auto',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
-          border: `1px solid ${t.border}`,
-          overflow: 'hidden',
+          border: isMobile ? 'none' : `1px solid ${t.border}`,
+          overflow: isMobile ? 'auto' : 'hidden',
         }}
       >
-        <div style={{ padding: '24px 28px', borderBottom: `1px solid ${t.border}`, background: t.bg3 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: t.text4, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+        <div style={{ padding: isMobile ? '16px 20px' : '24px 28px', borderBottom: `1px solid ${t.border}`, background: t.bg3 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: t.text4, textTransform: 'uppercase', letterSpacing: 0.6 }}>
             Split Payment
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            <div style={{ fontSize: 28, fontWeight: 900, color: t.text }}>{fmt(cartTotal, settings?.sym)}</div>
+            <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, color: t.text }}>{fmt(cartTotal, settings?.sym)}</div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, color: t.text3, fontWeight: 700 }}>Remaining Balance</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: remaining > 0 ? '#f87171' : '#4ade80' }}>
+              <div style={{ fontSize: 10, color: t.text3, fontWeight: 700 }}>Remaining</div>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, color: remaining > 0 ? '#f87171' : '#4ade80' }}>
                 {fmt(remaining, settings?.sym)}
               </div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, minHeight: 0 }}>
           {/* Left panel: Add Payment Form */}
-          <div style={{ flex: 1, borderRight: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, borderRight: isMobile ? 'none' : `1px solid ${t.border}`, borderBottom: isMobile ? `1px solid ${t.border}` : 'none', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', borderBottom: `1px solid ${t.border}`, background: t.bg3 }}>
               {['cash', 'card', 'qr'].map(tab => (
                 <button
@@ -144,7 +146,7 @@ export function SplitPaymentDetailModal({
                     fontWeight: activeTab === tab ? 900 : 700,
                     cursor: 'pointer',
                     textTransform: 'uppercase',
-                    fontSize: 13,
+                    fontSize: 11,
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -153,7 +155,7 @@ export function SplitPaymentDetailModal({
               ))}
             </div>
 
-            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+            <div style={{ padding: isMobile ? '16px 20px' : '20px 24px', overflowY: 'auto', flex: 1 }}>
               {activeTab === 'cash' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.2s ease' }}>
                   <Input t={t} label="Cash Amount" value={cashAmount} onChange={setCashAmount} placeholder="0.00" type="number" />
@@ -255,8 +257,8 @@ export function SplitPaymentDetailModal({
           </div>
 
           {/* Right panel: Added Payments List */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.bg3 }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.border}`, fontSize: 12, fontWeight: 800, color: t.text4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', background: t.bg3 }}>
+            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.border}`, fontSize: 10, fontWeight: 800, color: t.text4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               Payments Added ({payments.length})
             </div>
             <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
@@ -299,23 +301,23 @@ export function SplitPaymentDetailModal({
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', padding: '20px 28px 24px', borderTop: `1px solid ${t.border}`, background: t.bg, gap: 14 }}>
+        <div style={{ display: 'flex', padding: isMobile ? '16px 20px' : '20px 28px 24px', borderTop: `1px solid ${t.border}`, background: t.bg, gap: 12 }}>
           <button
             type="button"
             onClick={onClose}
             style={{
               flex: 1,
-              padding: '16px 20px',
+              padding: isMobile ? '14px' : '16px 20px',
               borderRadius: 12,
               border: `1px solid ${t.border}`,
               background: t.bg3,
               color: t.text2,
               fontWeight: 800,
-              fontSize: 15,
+              fontSize: isMobile ? 13 : 15,
               cursor: 'pointer',
             }}
           >
-            Cancel Split
+            Cancel
           </button>
           <button
             type="button"
@@ -323,17 +325,17 @@ export function SplitPaymentDetailModal({
             onClick={onConfirm}
             style={{
               flex: 1.5,
-              padding: '16px 20px',
+              padding: isMobile ? '14px' : '16px 20px',
               borderRadius: 12,
               border: 'none',
               background: canComplete ? '#10b981' : '#94a3b8',
               color: '#fff',
               fontWeight: 900,
-              fontSize: 15,
+              fontSize: isMobile ? 13 : 15,
               cursor: canComplete ? 'pointer' : 'not-allowed',
             }}
           >
-            {canComplete ? 'Proceed Pay' : `Pay ${fmt(remaining, settings?.sym)} remaining`}
+            {canComplete ? 'Proceed Pay' : isMobile ? 'Pay Remaining' : `Pay ${fmt(remaining, settings?.sym)} remaining`}
           </button>
         </div>
       </div>

@@ -77,63 +77,151 @@ export function POSCartPanel({
   setReturnRefundMethod,
   lastAddedTrigger,
   showFooter = true,
+  isMobile = false,
 }) {
   const [editingPriceId, setEditingPriceId] = useState(null)
   const [editPriceVal, setEditPriceVal] = useState('')
   const isManager = user?.role === 'admin' || user?.role === 'manager'
-  const showExchangeSections = loadedOrderForReturn && returnProcessMode === 'exchange'
-  const returnItems = loadedOrderForReturn ? cart.filter(i => i.orderItemId) : []
-  const replacementItems = loadedOrderForReturn ? cart.filter(i => !i.orderItemId) : []
-  const filteredReturn = cartSearch.trim() ? returnItems.filter(i => i.name.toLowerCase().includes(cartSearch.toLowerCase())) : returnItems
-  const filteredReplacement = cartSearch.trim() ? replacementItems.filter(i => i.name.toLowerCase().includes(cartSearch.toLowerCase())) : replacementItems
   const filteredCart = cartSearch.trim()
     ? cart.filter(i => i.name.toLowerCase().includes(cartSearch.toLowerCase()))
     : cart
-  const returnTotal = returnItems.reduce((s, i) => s + (i.price ?? 0) * (1 - (i.discount || 0) / 100) * (i.qty ?? 1), 0)
-  const replacementTotal = replacementItems.reduce((s, i) => s + (i.price ?? 0) * (1 - (i.discount || 0) / 100) * (i.qty ?? 1), 0)
+
+  const cartListRef = useRef(null)
+  useEffect(() => {
+    if (!removeMode) return
+    // Ensure "top" is visible when qty is reduced/moved to top in remove mode.
+    if (cartListRef.current) cartListRef.current.scrollTop = 0
+  }, [removeMode, cart])
+
+  const gridTemplate = isMobile ? '1fr 100px 80px 30px' : '80px 1fr 140px 100px 120px 40px';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff', overflow: 'hidden' }}>
-      {/* Table Header */}
-      <div style={{ minWidth: 600, display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 100px 40px', background: '#ef4444', color: '#fff', padding: '12px 16px', fontWeight: 900, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        <div>Image</div>
-        <div>Name</div>
+      {/* Table Header (Refined) */}
+      <div style={{
+        minWidth: isMobile ? 'auto' : 600,
+        display: 'grid',
+        gridTemplateColumns: gridTemplate,
+        background: '#0f172a',
+        color: 'rgba(255,255,255,0.9)',
+        padding: isMobile ? '12px 16px' : '16px 24px',
+        fontWeight: 800,
+        fontSize: 9,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+        zIndex: 5
+      }}>
+        {!isMobile && <div>Product</div>}
+        <div>{isMobile ? 'Item' : 'Details'}</div>
         <div style={{ textAlign: 'center' }}>Qty</div>
-        <div style={{ textAlign: 'right' }}>Price</div>
+        {!isMobile && <div style={{ textAlign: 'right' }}>Price</div>}
         <div style={{ textAlign: 'right' }}>Total</div>
         <div></div>
       </div>
 
-      {/* Item List */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+      {/* Item List (Premium Rows) */}
+      <div ref={cartListRef} style={{ flex: 1, overflowY: 'auto', background: '#fcfcfc' }}>
         {cart.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 16px', color: '#94a3b8' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🛒</div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>No items in cart</div>
-            <div style={{ fontSize: 13, marginTop: 4 }}>Scan an item or search above</div>
+          <div style={{ textAlign: 'center', padding: '40px 24px', color: '#94a3b8' }}>
+            <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.5 }}>📦</div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b' }}>Your cart is empty</div>
+            <div style={{ fontSize: 12, marginTop: 4, color: '#64748b' }}>Search or scan to start</div>
           </div>
         ) : (
-          cart.map((item, idx) => (
-            <div key={item.id} style={{ minWidth: 600, display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 100px 40px', padding: '12px 16px', alignItems: 'center', borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-              <div style={{ width: 50, height: 50, borderRadius: 8, overflow: 'hidden', background: '#f1f5f9' }}>
-                <ImgWithFallback src={item.image || item.image_url || PRODUCT_IMAGES[item.name]} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          filteredCart.map((item, idx) => (
+            <div
+              key={item.id}
+              className="fade-in"
+              onClick={(e) => {
+                if (!removeMode) return
+                // Don't trigger remove when user is interacting with qty/input/buttons.
+                const tag = (e.target?.tagName || '').toUpperCase()
+                if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+                removeFromCart(item.id)
+              }}
+              style={{
+                minWidth: isMobile ? 'auto' : 600,
+                display: 'grid',
+                gridTemplateColumns: gridTemplate,
+                padding: isMobile ? '12px 16px' : '16px 24px',
+                alignItems: 'center',
+                borderBottom: '1px solid #f1f5f9',
+                background: removeMode ? '#fff5f5' : '#fff',
+                cursor: removeMode ? 'pointer' : 'default',
+                boxShadow: removeMode ? '0 0 0 2px rgba(239,68,68,0.18) inset, 0 6px 18px rgba(239,68,68,0.10)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {!isMobile && (
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    cursor: removeMode ? 'pointer' : 'default'
+                  }}
+                  onClick={() => {
+                    if (!removeMode) return
+                    removeFromCart(item.id)
+                  }}
+                  title={removeMode ? 'Click to remove 1 qty' : undefined}
+                >
+                  <ImgWithFallback src={item.image || item.image_url || PRODUCT_IMAGES[item.name]} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              )}
+              <div style={{ minWidth: 0, paddingRight: isMobile ? 8 : 16 }}>
+                <div
+                  style={{
+                    fontSize: isMobile ? 12 : 13,
+                    fontWeight: 800,
+                    color: '#1e293b',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    cursor: removeMode ? 'pointer' : 'default'
+                  }}
+                  onClick={() => {
+                    if (!removeMode) return
+                    removeFromCart(item.id)
+                  }}
+                  title={removeMode ? 'Click to remove 1 qty' : undefined}
+                >
+                  {item.name}
+                </div>
+                {!isMobile && <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600, marginTop: 2 }}>SKU: {item.sku}</div>}
               </div>
-              <div style={{ minWidth: 0, paddingRight: 10 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{item.sku}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <button onClick={() => updateQty(item.id, -1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>−</button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 4 : 10 }}>
+                {!isMobile && (
+                  <button
+                    onClick={() => updateQty(item.id, -1)}
+                    style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >−</button>
+                )}
                 <QtyInput qty={item.qty} onChange={n => updateQty(item.id, n - item.qty)} t={t} focusTrigger={lastAddedTrigger?.id === item.id ? lastAddedTrigger.ts : null} />
-                <button onClick={() => updateQty(item.id, 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>+</button>
+                {!isMobile && (
+                  <button
+                    onClick={() => updateQty(item.id, 1)}
+                    style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >+</button>
+                )}
               </div>
-              <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#1e293b' }}>
-                {fmt(item.price * (1 - (item.discount || 0) / 100), settings?.sym)}
-              </div>
-              <div style={{ textAlign: 'right', fontSize: 15, fontWeight: 900, color: '#ef4444' }}>
+              {!isMobile && (
+                <div style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                  {fmt(item.price * (1 - (item.discount || 0) / 100), settings?.sym)}
+                </div>
+              )}
+              <div style={{ textAlign: 'right', fontSize: isMobile ? 12 : 14, fontWeight: 900, color: '#10b981' }}>
                 {fmt(item.price * (1 - (item.discount || 0) / 100) * item.qty, settings?.sym)}
               </div>
               <div style={{ textAlign: 'right' }}>
-                <button onClick={() => setCart(c => c.filter(i => i.id !== item.id))} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 18 }}>✕</button>
+                <button
+                  onClick={() => setCart(c => c.filter(i => i.id !== item.id))}
+                  style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 18 }}
+                >✕</button>
               </div>
             </div>
           ))
@@ -141,25 +229,34 @@ export function POSCartPanel({
       </div>
 
       {showFooter && (
-        <div style={{ padding: '20px 24px', background: '#f8fafc', borderTop: '2px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 400, marginLeft: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#64748b' }}>
-              <span>Subtotal</span>
-              <span style={{ fontWeight: 700, color: '#1e293b' }}>{fmt(cartSubtotal, settings?.sym)}</span>
+        <div style={{ padding: isMobile ? '16px 20px' : '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', boxShadow: '0 -10px 30px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460, marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+              <span>Order Subtotal</span>
+              <span style={{ fontWeight: 800, color: '#1e293b' }}>{fmt(cartSubtotal, settings?.sym)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#64748b' }}>
-              <span>Tax</span>
-              <span style={{ fontWeight: 700, color: '#1e293b' }}>{fmt(cartTax, settings?.sym)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+              <span>Estimated Tax (VAT)</span>
+              <span style={{ fontWeight: 800, color: '#1e293b' }}>{fmt(cartTax, settings?.sym)}</span>
             </div>
-            {couponDiscount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#10b981' }}>
-                <span>Discount</span>
-                <span style={{ fontWeight: 700 }}>-{fmt(couponDiscount + loyaltyDiscount + manualDiscountAmount, settings?.sym)}</span>
+            {couponDiscount + loyaltyDiscount + manualDiscountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#10b981', fontWeight: 700, background: '#f0fdf4', padding: '10px 16px', borderRadius: 12 }}>
+                <span>Total Discounts Applied</span>
+                <span>-{fmt(couponDiscount + loyaltyDiscount + manualDiscountAmount, settings?.sym)}</span>
               </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 24, fontWeight: 900, color: '#1e293b', marginTop: 8, borderTop: '1px solid #cbd5e1', paddingTop: 12 }}>
-              <span>Total Payable</span>
-              <span style={{ color: '#ef4444' }}>{fmt(cartTotal, settings?.sym)}</span>
+            <div style={{
+              background: '#0f172a',
+              borderRadius: 20,
+              padding: isMobile ? '16px 20px' : '20px 28px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 12,
+              boxShadow: '0 15px 35px -5px rgba(15, 23, 42, 0.2)'
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1.5 }}>Final Total</div>
+              <div style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, color: '#ffffff', letterSpacing: -1 }}>{fmt(cartTotal, settings?.sym)}</div>
             </div>
           </div>
         </div>

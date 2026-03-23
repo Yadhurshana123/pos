@@ -121,3 +121,30 @@ export async function updateOrderStatus(id, status) {
   }
   return { id, status }
 }
+export async function fetchSessionSummary(userId, dateFrom) {
+  if (!isSupabaseConfigured()) return { totalSales: 0, cashPayments: 0, cardPayments: 0, refunds: 0, discounts: 0 }
+  
+  const { data, error } = await supabase
+    .from('orders')
+    .select('total, payment_method, discount_amount, loyalty_discount, status')
+    .eq('cashier_id', userId)
+    .gte('created_at', dateFrom)
+  
+  if (error) throw error
+  if (!data) return { totalSales: 0, cashPayments: 0, cardPayments: 0, refunds: 0, discounts: 0 }
+
+  return data.reduce((acc, o) => {
+    const total = Number(o.total || 0)
+    const disc = Number(o.discount_amount || 0) + Number(o.loyalty_discount || 0)
+    
+    if (o.status === 'refunded') {
+      acc.refunds += total
+    } else {
+      acc.totalSales += total
+      acc.discounts += disc
+      if (o.payment_method === 'Cash') acc.cashPayments += total
+      else acc.cardPayments += total // Simplified for now: non-cash is card/other
+    }
+    return acc
+  }, { totalSales: 0, cashPayments: 0, cardPayments: 0, refunds: 0, discounts: 0 })
+}
