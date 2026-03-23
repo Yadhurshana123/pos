@@ -1,4 +1,10 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { isUuid } from '@/lib/utils'
+
+/** Only pass values Postgres uuid columns accept; local demo IDs (e.g. Date.now()) become null. */
+function asUuidOrNull(v) {
+  return isUuid(v) ? String(v).trim() : null
+}
 
 /** Map DB order to app format (camelCase) */
 function toAppFormat(row) {
@@ -56,10 +62,10 @@ export async function createOrder(order) {
 export async function createOrderWithItems({ siteId, counterId, cashierId, customerId, items, subtotal, taxAmount, discountAmount, loyaltyDiscount, total, paymentMethod, paymentDetails, loyaltyEarned, loyaltyUsed, manualDiscountPct }) {
   if (!isSupabaseConfigured()) return null
   const orderPayload = {
-    site_id: siteId || null,
-    counter_id: counterId || null,
-    customer_id: customerId || null,
-    cashier_id: cashierId || null,
+    site_id: asUuidOrNull(siteId),
+    counter_id: asUuidOrNull(counterId),
+    customer_id: asUuidOrNull(customerId),
+    cashier_id: asUuidOrNull(cashierId),
     order_type: 'in-store',
     status: 'completed',
     subtotal: Number(subtotal),
@@ -80,8 +86,8 @@ export async function createOrderWithItems({ siteId, counterId, cashierId, custo
 
   const orderItems = items.map((i) => ({
     order_id: order.id,
-    product_id: i.productId || i.product_id,
-    variant_id: i.variantId || null,
+    product_id: asUuidOrNull(i.productId || i.product_id),
+    variant_id: asUuidOrNull(i.variantId || i.variant_id),
     product_name: i.name,
     quantity: i.qty,
     unit_price: Number(i.price),
@@ -114,4 +120,31 @@ export async function updateOrderStatus(id, status) {
     return toAppFormat(data)
   }
   return { id, status }
+}
+export async function fetchSessionSummary(userId, dateFrom) {
+  if (!isSupabaseConfigured()) return { totalSales: 0, cashPayments: 0, cardPayments: 0, refunds: 0, discounts: 0 }
+  
+  const { data, error } = await supabase
+    .from('orders')
+    .select('total, payment_method, discount_amount, loyalty_discount, status')
+    .eq('cashier_id', userId)
+    .gte('created_at', dateFrom)
+  
+  if (error) throw error
+  if (!data) return { totalSales: 0, cashPayments: 0, cardPayments: 0, refunds: 0, discounts: 0 }
+
+  return data.reduce((acc, o) => {
+    const total = Number(o.total || 0)
+    const disc = Number(o.discount_amount || 0) + Number(o.loyalty_discount || 0)
+    
+    if (o.status === 'refunded') {
+      acc.refunds += total
+    } else {
+      acc.totalSales += total
+      acc.discounts += disc
+      if (o.payment_method === 'Cash') acc.cashPayments += total
+      else acc.cardPayments += total // Simplified for now: non-cash is card/other
+    }
+    return acc
+  }, { totalSales: 0, cashPayments: 0, cardPayments: 0, refunds: 0, discounts: 0 })
 }

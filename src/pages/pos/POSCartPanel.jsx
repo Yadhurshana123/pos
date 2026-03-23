@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ImgWithFallback } from '@/components/shared'
 import { Toggle, Select } from '@/components/ui'
 import { PRODUCT_IMAGES } from '@/lib/seed-data'
 import { fmt } from '@/lib/utils'
-import { POSPaymentForm } from './POSPaymentForm'
-import { CartTable } from './CartTable'
 
 const REASON_OPTIONS = [
   { value: 'damaged', label: 'Damaged' },
@@ -14,11 +12,22 @@ const REASON_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-const QtyInput = ({ qty, onChange, t }) => {
-  const [val, setVal] = useState(qty)
-  useEffect(() => setVal(qty), [qty])
+const QtyInput = ({ qty, onChange, t, focusTrigger }) => {
+  const [val, setVal] = useState(qty);
+  const inputRef = useRef(null);
+
+  useEffect(() => setVal(qty), [qty]);
+
+  useEffect(() => {
+    if (focusTrigger) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [focusTrigger]);
+
   return (
     <input
+      ref={inputRef}
       type="number"
       value={val}
       onChange={e => setVal(e.target.value)}
@@ -52,9 +61,12 @@ export function POSCartPanel({
   checkoutProcessing,
   payMethod, setPayMethod,
   cashGiven, setCashGiven, cashGivenNum, cashChange,
-  splitCash, setSplitCash, splitCard, setSplitCard,
   cardNum, setCardNum, setCardExp, setCardCvv,
-  checkout, setShowCustDisplay, qrPaymentStatus,
+  splitCash, setSplitCash, splitCard, setSplitCard, splitQr, setSplitQr,
+  checkout, setShowCustDisplay,
+  updateCartItemPrice, user,
+  checkoutProcessing,
+  qrPaymentStatus,
   settings, t,
   loadedOrderForReturn,
   processReturnFromCart,
@@ -65,255 +77,191 @@ export function POSCartPanel({
   setReturnProcessMode,
   returnRefundMethod,
   setReturnRefundMethod,
-  className: classNameProp,
-  checkoutSplit = false,
-  onEmptyScan,
+  lastAddedTrigger,
+  showFooter = true,
+  isMobile = false,
 }) {
   const [editingPriceId, setEditingPriceId] = useState(null)
   const [editPriceVal, setEditPriceVal] = useState('')
   const isManager = user?.role === 'admin' || user?.role === 'manager'
-  const showExchangeSections = loadedOrderForReturn && returnProcessMode === 'exchange'
-  const returnItems = loadedOrderForReturn ? cart.filter(i => i.orderItemId) : []
-  const replacementItems = loadedOrderForReturn ? cart.filter(i => !i.orderItemId) : []
-  const filteredReturn = cartSearch.trim() ? returnItems.filter(i => i.name.toLowerCase().includes(cartSearch.toLowerCase())) : returnItems
-  const filteredReplacement = cartSearch.trim() ? replacementItems.filter(i => i.name.toLowerCase().includes(cartSearch.toLowerCase())) : replacementItems
   const filteredCart = cartSearch.trim()
     ? cart.filter(i => i.name.toLowerCase().includes(cartSearch.toLowerCase()))
     : cart
-  const returnTotal = returnItems.reduce((s, i) => s + (i.price ?? 0) * (1 - (i.discount || 0) / 100) * (i.qty ?? 1), 0)
-  const replacementTotal = replacementItems.reduce((s, i) => s + (i.price ?? 0) * (1 - (i.discount || 0) / 100) * (i.qty ?? 1), 0)
+
+  const cartListRef = useRef(null)
+  useEffect(() => {
+    if (!removeMode) return
+    // Ensure "top" is visible when qty is reduced/moved to top in remove mode.
+    if (cartListRef.current) cartListRef.current.scrollTop = 0
+  }, [removeMode, cart])
+
+  const gridTemplate = isMobile ? '1fr 100px 80px 30px' : '80px 1fr 140px 100px 120px 40px';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: checkoutSplit ? 1 : undefined, minHeight: checkoutSplit ? 0 : undefined, background: checkoutSplit ? t.bg2 : t.posRight, borderLeft: checkoutSplit ? 'none' : `1px solid ${t.border}`, borderRight: checkoutSplit ? `1px solid ${t.border}` : 'none', boxShadow: checkoutSplit ? '0 4px 28px rgba(15, 23, 42, 0.07)' : 'none' }} className={`${checkoutSplit ? 'pos-cart-precision-main pos-cart-panel-card' : 'pos-right'}${classNameProp ? ` ${classNameProp}` : ''}`}>
-      <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}`, background: t.bg3 }}>
-        <div style={{ fontSize: 10, fontWeight: 800, color: t.text4, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Step 2 · Cart</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }} aria-hidden>🛒</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: t.text, letterSpacing: '-0.02em' }}>Current sale</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: t.text3, marginTop: 2 }}>Review lines · tap + or − to change qty</div>
-          </div>
-        </div>
-        <input
-          value={cartSearch}
-          onChange={e => setCartSearch(e.target.value)}
-          placeholder="Filter lines in cart…"
-          aria-label="Filter cart lines"
-          style={{
-            width: '100%',
-            marginTop: 10,
-            background: t.input,
-            border: `1px solid ${t.border}`,
-            borderRadius: 10,
-            padding: '10px 12px',
-            color: t.text,
-            fontSize: 14,
-            outline: 'none',
-            boxShadow: 'inset 0 1px 2px rgba(15, 23, 42, 0.04)',
-          }}
-        />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff', overflow: 'hidden' }}>
+      {/* Table Header (Refined) */}
+      <div style={{
+        minWidth: isMobile ? 'auto' : 600,
+        display: 'grid',
+        gridTemplateColumns: gridTemplate,
+        background: '#0f172a',
+        color: 'rgba(255,255,255,0.9)',
+        padding: isMobile ? '12px 16px' : '16px 24px',
+        fontWeight: 800,
+        fontSize: 9,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+        zIndex: 5
+      }}>
+        {!isMobile && <div>Product</div>}
+        <div>{isMobile ? 'Item' : 'Details'}</div>
+        <div style={{ textAlign: 'center' }}>Qty</div>
+        {!isMobile && <div style={{ textAlign: 'right' }}>Price</div>}
+        <div style={{ textAlign: 'right' }}>Total</div>
+        <div></div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 10px', WebkitOverflowScrolling: 'touch', minHeight: 0 }}>
-        {cart.length === 0
-          ? (
-            <CartTable
-              cart={cart}
-              filteredCart={filteredCart}
-              removeMode={removeMode}
-              setRemoveMode={setRemoveMode}
-              updateQty={updateQty}
-              setCart={setCart}
-              removeFromCart={removeFromCart}
-              settings={settings}
-              t={t}
-              isManager={isManager}
-              editingPriceId={editingPriceId}
-              setEditingPriceId={setEditingPriceId}
-              editPriceVal={editPriceVal}
-              setEditPriceVal={setEditPriceVal}
-              updateCartItemPrice={updateCartItemPrice}
-              onEmptyScan={onEmptyScan}
-            />
-            )
-          : showExchangeSections ? (
-            <>
-              {filteredReturn.length === 0 && filteredReplacement.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px 16px', color: t.text3 }}><div style={{ fontSize: 32, marginBottom: 6 }}>🔍</div><div style={{ fontSize: 14, fontWeight: 700 }}>No match in cart</div></div>
-              ) : (
-                <>
-                  {filteredReturn.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: t.yellow, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>↩️ Returning</div>
-                      {filteredReturn.map(item => (
-                        <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${t.border}` }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: t.bg3 }}>
-                            <ImgWithFallback src={item.image || item.image_url || PRODUCT_IMAGES[item.name]} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                            <div style={{ fontSize: 12, color: t.green, fontWeight: 800 }}>{fmt(item.price * (1 - (item.discount || 0) / 100), settings?.sym)} × {item.qty}</div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <button type="button" onClick={e => { e.stopPropagation(); updateQty(item.id, -1) }} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg3, color: t.text, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                            <QtyInput qty={item.qty} onChange={n => updateQty(item.id, n - item.qty)} t={t} />
-                            <button type="button" onClick={e => { e.stopPropagation(); updateQty(item.id, 1) }} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg3, color: t.text, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 900, color: t.text, minWidth: 56, textAlign: 'right' }}>{fmt(item.price * (1 - (item.discount || 0) / 100) * item.qty)}</div>
-                          <button type="button" onClick={e => { e.stopPropagation(); setCart(c => c.filter(i => i.id !== item.id)) }} style={{ background: 'none', border: 'none', padding: '0 4px', cursor: 'pointer', fontSize: 17, flexShrink: 0, color: t.text4 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {filteredReplacement.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: t.green, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>↔ Replacement</div>
-                      {filteredReplacement.map(item => (
-                        <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${t.border}` }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: t.bg3 }}>
-                            <ImgWithFallback src={item.image || item.image_url || PRODUCT_IMAGES[item.name]} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                            <div style={{ fontSize: 12, color: t.green, fontWeight: 800 }}>{fmt(item.price * (1 - (item.discount || 0) / 100), settings?.sym)} × {item.qty}</div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <button type="button" onClick={e => { e.stopPropagation(); updateQty(item.id, -1) }} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg3, color: t.text, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                            <QtyInput qty={item.qty} onChange={n => updateQty(item.id, n - item.qty)} t={t} />
-                            <button type="button" onClick={e => { e.stopPropagation(); updateQty(item.id, 1) }} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg3, color: t.text, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 900, color: t.text, minWidth: 56, textAlign: 'right' }}>{fmt(item.price * (1 - (item.discount || 0) / 100) * item.qty)}</div>
-                          <button type="button" onClick={e => { e.stopPropagation(); setCart(c => c.filter(i => i.id !== item.id)) }} style={{ background: 'none', border: 'none', padding: '0 4px', cursor: 'pointer', fontSize: 17, flexShrink: 0, color: t.text4 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
+      {/* Item List (Premium Rows) */}
+      <div ref={cartListRef} style={{ flex: 1, overflowY: 'auto', background: '#fcfcfc' }}>
+        {cart.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 24px', color: '#94a3b8' }}>
+            <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.5 }}>📦</div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b' }}>Your cart is empty</div>
+            <div style={{ fontSize: 12, marginTop: 4, color: '#64748b' }}>Search or scan to start</div>
+          </div>
+        ) : (
+          filteredCart.map((item, idx) => (
+            <div
+              key={item.id}
+              className="fade-in"
+              onClick={(e) => {
+                if (!removeMode) return
+                // Don't trigger remove when user is interacting with qty/input/buttons.
+                const tag = (e.target?.tagName || '').toUpperCase()
+                if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+                removeFromCart(item.id)
+              }}
+              style={{
+                minWidth: isMobile ? 'auto' : 600,
+                display: 'grid',
+                gridTemplateColumns: gridTemplate,
+                padding: isMobile ? '12px 16px' : '16px 24px',
+                alignItems: 'center',
+                borderBottom: '1px solid #f1f5f9',
+                background: removeMode ? '#fff5f5' : '#fff',
+                cursor: removeMode ? 'pointer' : 'default',
+                boxShadow: removeMode ? '0 0 0 2px rgba(239,68,68,0.18) inset, 0 6px 18px rgba(239,68,68,0.10)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {!isMobile && (
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    cursor: removeMode ? 'pointer' : 'default'
+                  }}
+                  onClick={() => {
+                    if (!removeMode) return
+                    removeFromCart(item.id)
+                  }}
+                  title={removeMode ? 'Click to remove 1 qty' : undefined}
+                >
+                  <ImgWithFallback src={item.image || item.image_url || PRODUCT_IMAGES[item.name]} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
               )}
-            </>
-          ) : (
-            <CartTable
-              cart={cart}
-              filteredCart={filteredCart}
-              removeMode={removeMode}
-              setRemoveMode={setRemoveMode}
-              updateQty={updateQty}
-              setCart={setCart}
-              removeFromCart={removeFromCart}
-              settings={settings}
-              t={t}
-              isManager={isManager}
-              editingPriceId={editingPriceId}
-              setEditingPriceId={setEditingPriceId}
-              editPriceVal={editPriceVal}
-              setEditPriceVal={setEditPriceVal}
-              updateCartItemPrice={updateCartItemPrice}
-              onEmptyScan={onEmptyScan}
-            />
-          )}
-      </div>
-
-      {!checkoutSplit && (
-      <div style={{ padding: '12px 16px', borderTop: `1px solid ${t.border}`, background: t.bg2 }}>
-        {appliedCoupon
-          ? <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: t.greenBg, border: `1px solid ${t.greenBorder}`, borderRadius: 8, padding: '9px 14px' }}>
-            <span style={{ fontSize: 14, color: t.green, fontWeight: 800 }}>🎟️ {appliedCoupon.code} — {appliedCoupon.description}</span>
-            <button type="button" onClick={() => { setAppliedCoupon(null); setCouponCode('') }} style={{ background: 'none', border: 'none', color: t.red, cursor: 'pointer', fontSize: 17 }}>✕</button>
-          </div>
-          : <div style={{ display: 'flex', gap: 8 }}>
-            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} placeholder="Coupon code" style={{ flex: 1, background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: '9px 12px', color: t.text, fontSize: 14, outline: 'none' }} />
-            <button type="button" onClick={applyCoupon} style={{ background: t.purple, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Apply</button>
-          </div>}
-
-        {selCust && (selCust.loyaltyPoints || 0) > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, background: t.yellowBg, border: `1px solid ${t.yellowBorder}`, borderRadius: 8, padding: '9px 14px' }}>
-            <span style={{ fontSize: 14, color: t.yellow, fontWeight: 700 }}>⭐ Redeem {selCust.loyaltyPoints} pts = {fmt(selCust.loyaltyPoints * (settings?.loyaltyValue || 0.01), settings?.sym)}</span>
-            <Toggle t={t} value={loyaltyRedeem} onChange={setLoyaltyRedeem} />
-          </div>
-        )}
-
-        {(user?.role === 'admin' || user?.role === 'manager') && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.text3 }}>Manual discount %</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={0.5}
-              value={manualDiscountPct ?? 0}
-              onChange={e => setManualDiscountPct?.(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
-              style={{ width: 68, background: t.input, border: `1px solid ${t.border}`, borderRadius: 6, padding: '6px 10px', color: t.text, fontSize: 14, fontWeight: 700 }}
-            />
-          </div>
-        )}
-
-        <div style={{ marginTop: 12 }}>
-          {[['Subtotal', fmt(cartSubtotal, settings?.sym)], ['Tax', fmt(cartTax, settings?.sym)], couponDiscount > 0 && [`Coupon (${appliedCoupon?.code})`, `-${fmt(couponDiscount, settings?.sym)}`], loyaltyDiscount > 0 && ['Loyalty Discount', `-${fmt(loyaltyDiscount, settings?.sym)}`], manualDiscountAmount > 0 && [`Manual (${manualDiscountPct ?? 0}%)`, `-${fmt(manualDiscountAmount, settings?.sym)}`]].filter(Boolean).map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: v.startsWith?.('-') ? t.green : t.text3, marginBottom: 5 }}><span>{k}</span><span style={{ fontWeight: 700 }}>{v}</span></div>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 24, fontWeight: 900, color: t.text, paddingTop: 12, borderTop: `2px solid ${t.border}`, marginTop: 6 }}>
-            <span>Total</span><span style={{ color: t.accent }}>{fmt(cartTotal, settings?.sym)}</span>
-          </div>
-          {selCust && pointsEarned > 0 && <div style={{ fontSize: 13, color: t.yellow, textAlign: 'right', marginTop: 4 }}>+{pointsEarned} loyalty pts will be earned</div>}
-        </div>
-
-        {loadedOrderForReturn ? (
-          <>
-            <div style={{ marginTop: 12, padding: 12, background: t.yellowBg, border: `1px solid ${t.yellowBorder}`, borderRadius: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: t.yellow, marginBottom: 8, textTransform: 'uppercase' }}>↩️ Return / Exchange</div>
-              <Select t={t} label="Reason" value={returnReasonCode} onChange={setReturnReasonCode} options={REASON_OPTIONS.map(r => ({ value: r.value, label: r.label }))} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button type="button" onClick={() => setReturnProcessMode('return')} style={{ flex: 1, padding: '10px', borderRadius: 8, border: `2px solid ${returnProcessMode === 'return' ? t.accent : t.border}`, background: returnProcessMode === 'return' ? t.accent + '15' : t.bg3, color: returnProcessMode === 'return' ? t.accent : t.text3, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Return</button>
-                <button type="button" onClick={() => setReturnProcessMode('exchange')} style={{ flex: 1, padding: '10px', borderRadius: 8, border: `2px solid ${returnProcessMode === 'exchange' ? t.accent : t.border}`, background: returnProcessMode === 'exchange' ? t.accent + '15' : t.bg3, color: returnProcessMode === 'exchange' ? t.accent : t.text3, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Exchange</button>
+              <div style={{ minWidth: 0, paddingRight: isMobile ? 8 : 16 }}>
+                <div
+                  style={{
+                    fontSize: isMobile ? 12 : 13,
+                    fontWeight: 800,
+                    color: '#1e293b',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    cursor: removeMode ? 'pointer' : 'default'
+                  }}
+                  onClick={() => {
+                    if (!removeMode) return
+                    removeFromCart(item.id)
+                  }}
+                  title={removeMode ? 'Click to remove 1 qty' : undefined}
+                >
+                  {item.name}
+                </div>
+                {!isMobile && <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600, marginTop: 2 }}>SKU: {item.sku}</div>}
               </div>
-              {returnProcessMode === 'return' && (
-                <Select t={t} label="Refund" value={returnRefundMethod} onChange={setReturnRefundMethod} options={[{ value: 'original', label: 'Original payment' }, { value: 'store_credit', label: 'Store credit' }]} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 4 : 10 }}>
+                {!isMobile && (
+                  <button
+                    onClick={() => updateQty(item.id, -1)}
+                    style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >−</button>
+                )}
+                <QtyInput qty={item.qty} onChange={n => updateQty(item.id, n - item.qty)} t={t} focusTrigger={lastAddedTrigger?.id === item.id ? lastAddedTrigger.ts : null} />
+                {!isMobile && (
+                  <button
+                    onClick={() => updateQty(item.id, 1)}
+                    style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >+</button>
+                )}
+              </div>
+              {!isMobile && (
+                <div style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                  {fmt(item.price * (1 - (item.discount || 0) / 100), settings?.sym)}
+                </div>
               )}
+              <div style={{ textAlign: 'right', fontSize: isMobile ? 12 : 14, fontWeight: 900, color: '#10b981' }}>
+                {fmt(item.price * (1 - (item.discount || 0) / 100) * item.qty, settings?.sym)}
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <button
+                  onClick={() => setCart(c => c.filter(i => i.id !== item.id))}
+                  style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 18 }}
+                >✕</button>
+              </div>
             </div>
-            {returnProcessMode === 'exchange' && showExchangeSections && (
-              <div style={{ marginTop: 8, fontSize: 13, color: t.text3 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Return:</span><span style={{ fontWeight: 700 }}>{fmt(returnTotal, settings?.sym)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Replacement:</span><span style={{ fontWeight: 700, color: t.green }}>{fmt(replacementTotal, settings?.sym)}</span></div>
+          ))
+        )}
+      </div>
+
+      {showFooter && (
+        <div style={{ padding: isMobile ? '16px 20px' : '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', boxShadow: '0 -10px 30px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460, marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+              <span>Order Subtotal</span>
+              <span style={{ fontWeight: 800, color: '#1e293b' }}>{fmt(cartSubtotal, settings?.sym)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+              <span>Estimated Tax (VAT)</span>
+              <span style={{ fontWeight: 800, color: '#1e293b' }}>{fmt(cartTax, settings?.sym)}</span>
+            </div>
+            {couponDiscount + loyaltyDiscount + manualDiscountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#10b981', fontWeight: 700, background: '#f0fdf4', padding: '10px 16px', borderRadius: 12 }}>
+                <span>Total Discounts Applied</span>
+                <span>-{fmt(couponDiscount + loyaltyDiscount + manualDiscountAmount, settings?.sym)}</span>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-              <button
-                type="button"
-                onClick={processReturnFromCart}
-                disabled={checkoutProcessing || (returnProcessMode === 'exchange' && replacementItems.length === 0)}
-                style={{ flex: 1, padding: '15px', background: (checkoutProcessing || (returnProcessMode === 'exchange' && replacementItems.length === 0)) ? t.bg4 : t.green, color: (checkoutProcessing || (returnProcessMode === 'exchange' && replacementItems.length === 0)) ? t.text3 : '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 900, cursor: (checkoutProcessing || (returnProcessMode === 'exchange' && replacementItems.length === 0)) ? 'not-allowed' : 'pointer' }}
-              >
-                {checkoutProcessing ? 'Processing...' : returnProcessMode === 'exchange'
-                  ? (replacementItems.length === 0 ? 'Add replacement items' : `↔ Exchange (Return: ${returnItems.length}, Replace: ${replacementItems.length})`)
-                  : `↩️ Refund ${fmt(returnTotal || cartTotal, settings?.sym)}`}
-              </button>
-              <button type="button" onClick={clearReturnMode} style={{ padding: '15px 16px', background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 10, color: t.text2, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>✕ Cancel</button>
-            </div>
-          </>
-        ) : (
-          <>
-        {!loadedOrderForReturn && cart.length > 0 && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `2px solid ${t.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: t.text3, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Payment</div>
-            <div style={{ padding: 14, background: t.bg3, borderRadius: 12, border: `1px solid ${t.border}` }}>
-              <POSPaymentForm
-                payMethod={payMethod} setPayMethod={setPayMethod}
-                cashGiven={cashGiven} setCashGiven={setCashGiven} cashGivenNum={cashGivenNum} cashChange={cashChange} cartTotal={cartTotal}
-                splitCash={splitCash} setSplitCash={setSplitCash} splitCard={splitCard} setSplitCard={setSplitCard}
-                cardNum={cardNum} setCardNum={setCardNum} setCardExp={setCardExp} setCardCvv={setCardCvv}
-                checkout={checkout} setShowCustDisplay={setShowCustDisplay}
-                checkoutProcessing={checkoutProcessing} qrPaymentStatus={qrPaymentStatus}
-                settings={settings} t={t}
-              />
+            <div style={{
+              background: '#0f172a',
+              borderRadius: 20,
+              padding: isMobile ? '16px 20px' : '20px 28px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 12,
+              boxShadow: '0 15px 35px -5px rgba(15, 23, 42, 0.2)'
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1.5 }}>Final Total</div>
+              <div style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, color: '#ffffff', letterSpacing: -1 }}>{fmt(cartTotal, settings?.sym)}</div>
             </div>
           </div>
-        )}
-        {!loadedOrderForReturn && cart.length > 0 && (
-          <button type="button" onClick={() => { setCart([]); setManualDiscountPct?.(0) }} style={{ width: '100%', padding: '10px', marginTop: 10, background: 'transparent', color: t.text4, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>🗑️ Clear Cart</button>
-        )}
-          </>
-        )}
-      </div>
+        </div>
       )}
     </div>
   )

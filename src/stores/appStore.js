@@ -2,16 +2,13 @@ import { create } from 'zustand'
 
 export const useAppStore = create((set) => ({
   sidebarOpen: false,
-  sidebarCollapsed: false,
-  /** Cashier desktop: fully hide sidebar; hamburger toggles this */
-  sidebarHidden: false,
+  sidebarCollapsed: true,
   notifications: [
     { id: 1, msg: "Welcome to SCSTix EPOS! Check today's offers.", type: "info", read: false, time: "09:00" },
   ],
 
   toggleSidebar: () => set(state => ({ sidebarOpen: !state.sidebarOpen })),
-  toggleSidebarCollapsed: () => set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  toggleSidebarHidden: () => set(state => ({ sidebarHidden: !state.sidebarHidden })),
+  toggleSidebarCollapsed: (val) => set(state => ({ sidebarCollapsed: typeof val === 'boolean' ? val : !state.sidebarCollapsed })),
   closeSidebar: () => set({ sidebarOpen: false }),
   openSidebar: () => set({ sidebarOpen: true }),
 

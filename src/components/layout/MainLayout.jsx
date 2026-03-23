@@ -8,7 +8,7 @@ import { venuesService } from '@/services'
 
 export function MainLayout() {
   const { t } = useTheme()
-  const { sidebarOpen, sidebarCollapsed, sidebarHidden, closeSidebar } = useAppStore()
+  const { sidebarOpen, sidebarCollapsed, closeSidebar, toggleSidebarCollapsed } = useAppStore()
   const [venues, setVenues] = useState([])
   const location = useLocation()
   const isPosRoute = location.pathname === '/app/pos' || location.pathname.startsWith('/app/pos/')
@@ -29,6 +29,9 @@ export function MainLayout() {
       <div className={`sidebar-wrap${sidebarOpen ? ' open' : ''}${sidebarCollapsed ? ' collapsed' : ''}${sidebarHidden ? ' sidebar-hidden' : ''}`}>
         <Sidebar />
       </div>
+      
+
+
       {sidebarOpen && (
         <div
           onClick={closeSidebar}
@@ -40,18 +43,20 @@ export function MainLayout() {
           }}
         />
       )}
+      {!isPosRoute && <Topbar venues={venues} />}
       <div
         className={`main-content${sidebarCollapsed ? ' collapsed' : ''}${sidebarHidden ? ' sidebar-hidden' : ''}`}
         style={{
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
+          paddingLeft: 0,
+          paddingTop: isPosRoute ? 0 : 48,
         }}
       >
-        <Topbar venues={venues} />
         <div
           style={{
-            padding: isPosRoute ? 0 : 'clamp(10px,2vw,24px)',
+            padding: isPosRoute ? 0 : '24px 30px',
             flex: 1,
             minWidth: 0,
             minHeight: 0,

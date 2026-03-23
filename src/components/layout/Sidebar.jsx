@@ -80,7 +80,7 @@ export function Sidebar() {
   const { t } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  const closeSidebar = useAppStore((s) => s.closeSidebar)
+  const toggleSidebarCollapsed = useAppStore((s) => s.toggleSidebarCollapsed)
 
   if (!currentUser) return null
 
@@ -94,7 +94,7 @@ export function Sidebar() {
   const handleNav = (item) => {
     const path = '/app/' + getPath(item.key)
     navigate(path)
-    closeSidebar()
+    toggleSidebarCollapsed(true) // Ensure it collapses and resizes content
   }
 
   const isActive = (item) => {
@@ -112,6 +112,7 @@ export function Sidebar() {
         display: 'flex',
         flexDirection: 'column',
         boxShadow: theme.shadowMd,
+        paddingTop: 48,
       }}
     >
       <div style={{ padding: '18px 16px 14px', borderBottom: `1px solid ${theme.border}` }}>

@@ -1,4 +1,8 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { isUuid } from '@/lib/utils'
+
+/** inventory_movements.created_by is UUID → auth.users; omit invalid demo IDs */
+const actorId = (id) => (isUuid(id) ? id : null)
 
 export async function fetchInventory(siteId) {
   if (isSupabaseConfigured()) {
@@ -20,7 +24,7 @@ export async function receiveStock(productId, siteId, quantity, notes, userId) {
     .maybeSingle()
   const newQty = (existing?.stock_on_hand ?? 0) + quantity
   const { error: mvError } = await supabase.from('inventory_movements').insert({
-    product_id: productId, to_site_id: siteId, quantity, movement_type: 'receive', notes, created_by: userId,
+    product_id: productId, to_site_id: siteId, quantity, movement_type: 'receive', notes, created_by: actorId(userId),
   })
   if (mvError) throw mvError
   if (existing) {
@@ -49,7 +53,7 @@ export async function deductStock(productId, siteId, quantity, type, notes, user
   if (!existing) throw new Error('No inventory record for product at this site')
   const newQty = Math.max(0, existing.stock_on_hand + qty)
   const { error: mvError } = await supabase.from('inventory_movements').insert({
-    product_id: productId, to_site_id: siteId, quantity: qty, movement_type: type, notes, created_by: userId,
+    product_id: productId, to_site_id: siteId, quantity: qty, movement_type: type, notes, created_by: actorId(userId),
   })
   if (mvError) throw mvError
   const { data, error } = await supabase.from('inventory')
@@ -68,7 +72,7 @@ export async function addStock(productId, siteId, quantity, notes, userId) {
 export async function adjustStock(productId, siteId, quantity, type, notes, userId) {
   if (isSupabaseConfigured()) {
     const { error: mvError } = await supabase.from('inventory_movements').insert({
-      product_id: productId, to_site_id: siteId, quantity, movement_type: type, notes, created_by: userId,
+      product_id: productId, to_site_id: siteId, quantity, movement_type: type, notes, created_by: actorId(userId),
     })
     if (mvError) throw mvError
     const { data: existing } = await supabase.from('inventory')
@@ -102,7 +106,7 @@ export async function transferStock(productId, fromSiteId, toSiteId, quantity, n
       quantity, 
       movement_type: 'transfer', 
       notes, 
-      created_by: userId,
+      created_by: actorId(userId),
     })
     if (mvError) throw mvError
 

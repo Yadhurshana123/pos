@@ -43,6 +43,7 @@ export const useCashStore = create(
                 id: active.id,
                 openFloat: Number(active.opening_float),
                 openedAt: new Date(active.opened_at).toLocaleString(),
+                openedAtRaw: active.opened_at,
                 openedBy: active.opened_by_name || 'Cashier',
                 status: 'open',
                 _supabaseId: active.id
@@ -89,6 +90,7 @@ export const useCashStore = create(
           id: localId,
           openFloat: amount,
           openedAt: ts(),
+          openedAtRaw: new Date().toISOString(),
           openedBy: user?.name || 'Cashier',
           status: 'open'
         }
@@ -110,7 +112,7 @@ export const useCashStore = create(
             const dbSession = await openSession(dbSiteId, dbCounterId, user?.id, amount)
             // Update local state with Supabase ID
             set(state => ({
-              session: { ...state.session, id: dbSession.id, _supabaseId: dbSession.id }
+              session: { ...state.session, id: dbSession.id, _supabaseId: dbSession.id, openedAtRaw: dbSession.opened_at }
             }))
             // Record the opening movement
             await recordCashMovement(dbSession.id, 'float', amount, null, 'Opening float', user?.id)

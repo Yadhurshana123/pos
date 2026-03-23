@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '@/context/ThemeContext'
 import { useAuth } from '@/context/AuthContext'
 import { useAppStore } from '@/stores/appStore'
@@ -42,6 +42,7 @@ export function Topbar({ venues = [] }) {
   const { toggleSidebar, toggleSidebarCollapsed, toggleSidebarHidden, notifications, markAllRead } = useAppStore()
   const { selectedVenueId, selectedSiteId, setVenue, setSite } = useVenueStore()
   const location = useLocation()
+  const navigate = useNavigate()
   const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef()
   const isAdmin = currentUser?.role === 'admin'
@@ -78,17 +79,53 @@ export function Topbar({ venues = [] }) {
     <div style={{
       height: 48, background: t.topbar, borderBottom: `1px solid ${t.border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 clamp(10px,2vw,24px)', position: 'sticky', top: 0, zIndex: 100,
+      padding: '0 16px', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 400,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={onHamburgerClick} style={{
-          background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 8,
-          padding: '4px 10px', cursor: 'pointer', fontSize: 16, color: t.text,
-        }}>☰</button>
-        <span style={{ color: t.accent, fontWeight: 900, fontSize: 14 }}>S</span>
-        <span style={{ color: t.text, fontWeight: 700 }}>SCSTix</span>
-        <span style={{ color: t.text4, fontSize: 12, marginLeft: 8 }}>›</span>
-        <span style={{ color: t.text2, fontSize: 13, fontWeight: 600 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button 
+          onClick={onHamburgerClick}
+          style={{
+            background: t.bg3,
+            border: `1px solid ${t.border}`,
+            borderRadius: 8,
+            width: 32,
+            height: 32,
+            cursor: 'pointer',
+            fontSize: 16,
+            color: t.text,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 4,
+          }}
+        >
+          ☰
+        </button>
+        <button 
+          onClick={() => navigate(-1)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: t.text2,
+            fontSize: 18,
+            cursor: 'pointer',
+            padding: '0 4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = t.accent}
+          onMouseLeave={e => e.currentTarget.style.color = t.text2}
+          title="Go Back"
+        >
+          ←
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: t.text, fontWeight: 700 }}>SCSTix</span>
+          <span style={{ color: t.text4, fontSize: 12, marginLeft: 8 }}>›</span>
+          <span style={{ color: t.text2, fontSize: 13, fontWeight: 600 }}>{label}</span>
+        </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {isAdmin && venues.length > 0 && (

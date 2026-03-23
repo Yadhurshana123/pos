@@ -74,8 +74,7 @@ export function BarcodeScanner({ onDetected, onError, active = true, t }) {
 
     return () => {
       Quagga.offDetected(onDetectedHandler)
-      Quagga.stop()
-      Quagga.destroy()
+      try { Quagga.stop() } catch (_) { }
     }
   }, [active, onDetected, onError])
 
